@@ -1,0 +1,87 @@
+import abc
+from hashlib import blake2b
+from .crypto import encrypt_data, decrypt_data
+
+# use orjson if available faster!
+try:
+    import orjson as json
+except ImportError:
+    import json
+
+
+
+class Archive(abc.ABC):
+    """
+    Notes:
+        - The serializer track the files integrity and encryption status so there
+        is no need for the user to know which one should be decrypted when reading.
+        This is only decided when writing to the archive.
+
+        - When selecting technology we are looking at:
+            - replacement in place of files to avoid massive data copy and allows update
+            - Support of multifiles so we can include the media in the benchmark at least locally
+
+    """
+
+    KEYSET_STR = r"""{
+        "key": [{
+            "keyData": {
+                "keyMaterialType": "SYMMETRIC",
+                "typeUrl": "type.googleapis.com/google.crypto.tink.AesGcmKey",
+                "value": "GiBWyUfGgYk3RTRhj/LIUzSudIWlyjCftCOypTr0jCNSLg=="
+            },
+            "keyId": 294406504,
+            "outputPrefixType": "TINK",
+            "status": "ENABLED"
+        }],
+        "primaryKeyId": 294406504
+    }"""
+
+    def __init__(self, name: str, version: str) -> None:
+        super().__init__()
+        self.name = name
+        self.version = version
+
+    def version_string(self) -> str:
+        return f"{self.name}-{self.version}".replace(' ', '_').lower().strip()
+
+    @abc.abstractmethod
+    def read(self, name: str) -> bytes:
+        pass
+
+    def read_json(self, name: str):
+        data = self.read(name).decode()
+        return json.loads(data)
+
+    def write_json(self, name: str, value, encrypted: bool = True):
+        data = json.dumps(value)
+        self.write(name, data, encrypted)
+
+    @abc.abstractmethod
+    def write(self, name: str, value: str| bytes, encrypted: bool = True):
+        pass
+
+    @abc.abstractmethod
+    def list_files(self) -> list[str]:
+        "return the list of files"
+        pass
+
+    @abc.abstractmethod
+    def _get_keyset(self) -> str:
+        "get the keyset used for encryption"
+        pass
+
+    def _encrypt_data(self, plaintext: bytes) -> bytes:
+        keyset = self._get_keyset()
+        return encrypt_data(plaintext, keyset)
+
+    def _decrypt_data(self, ciphertext: bytes) -> bytes:
+        keyset = self._get_keyset()
+        return decrypt_data(ciphertext, keyset)
+
+    def _compute_hash(self, data: bytes|str, digest_size: int = 16) -> str:
+        "compute data hash for integrity manifest"
+        h = blake2b(digest_size=digest_size)
+        h.update(data)
+        return h.hexdigest()
+

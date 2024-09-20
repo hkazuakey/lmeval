@@ -1,0 +1,188 @@
+from collections.abc import Generator
+import time
+from typing import Optional, Tuple
+from litellm import completion, completion_cost, batch_completion
+from litellm import ModelResponse, CustomStreamWrapper
+
+from ..enums import Modality
+from .lmmodel import LMModel
+from .lmmodel import LMAnswer
+from ..media import Media
+from ..logger import log
+
+class LiteLLMModel(LMModel):
+    """
+    Documentation at: https://docs.litellm.ai/
+    """
+
+
+    def __init__(self,
+                 model_version: str,
+                 litellm_model: str,
+                 publisher: str,
+                 modalities: list[Modality] = [Modality.text]):
+
+        # clean up the name
+        name = ' '.join(model_version.split('-'))
+        name = name.lower()
+
+        super().__init__(name=name, publisher=publisher,
+                         version_string=model_version,
+                         modalities=modalities)
+
+        # store the litellm version name to call it in completions
+        self.runtime_vars['litellm_version_string'] = litellm_model
+
+
+    def batch_generate_text(self, prompts: list[str], medias: list[list[Media]],
+                            temperature: float = 0, max_tokens: int = 4096,
+                            completions: int = 1) -> Generator[Tuple[int, LMAnswer], None, None]:
+        model = self.runtime_vars['litellm_version_string']
+        assert len(prompts) == len(medias), "prompts and medias should have the same length"
+        messages_batch = []
+        for i, (prompt, media) in enumerate(zip(prompts, medias)):
+            messages_batch.append(self._make_messages(prompt, media))
+
+        try:
+            batch_responses = self._batch_completion(model, messages_batch,
+                                                     temperature, max_tokens,
+                                                     completions)
+        except:
+            batch_responses = [None for _ in prompts]
+
+        for i, resp in enumerate(batch_responses):
+            answer = self._make_answer(resp)
+            yield i, answer
+
+    def generate_text(self, prompt: str,
+                      medias: list[Media] | Media | None = None,
+                      temperature: float = 0.0,
+                      max_tokens: int = 4096,
+                      completions: int = 1) -> LMAnswer:
+        # FIXME: finish multi-completion support
+        model = self.runtime_vars['litellm_version_string']
+        messages = self._make_messages(prompt, medias)
+
+        try:
+            resp = self._completion(model=model, messages=messages,
+                                    temperature=temperature,
+                                    max_tokens=max_tokens,
+                                    completions=completions)
+        except Exception as e:
+            resp = None
+            print("Can't get response from model:", e)
+
+        answer = self._make_answer(resp)
+        return answer
+
+    def _make_messages(self, prompt: str,
+                      medias: list[Media] | Media | None = None) -> list[dict]:
+        "build the message to send to the model"
+        if medias is None:
+            medias = []
+        # boxing medias if needed
+        if not isinstance(medias, list):
+            medias = [medias]
+
+        # build request
+        content = []
+
+
+        # ! some text model struggle with arrays of message so we have to do a if
+        if len(medias) > 0:
+            # process media files
+            for media in medias:
+                # image
+                if media.modality == Modality.image.value:
+                    # FIXME use llmlite
+                    image_base64 = self._img2base64(media.content)
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/{media.filetype};base64,{image_base64}"}
+                    })
+
+            # text prompt
+            content.append({"type": "text", "text":  prompt})
+            return [{ "role": "user", "content": content}]
+        else:
+            # for model that don't support complex messages structure
+            return [{"role": "user", "content": prompt}]
+
+    def _make_answer(self, resp: ModelResponse | CustomStreamWrapper | None) -> LMAnswer:
+        iserror = False
+        error_reason = ''
+        raw_response = ''
+        cost = total_tokens = prompt_tokens = completion_tokens = 0
+        total_time = 0
+
+        if isinstance(resp, ModelResponse):
+            response = resp
+
+            log.debug(f"response: {response}")
+            try:
+                raw_response = response.choices[0].message.content
+            except Exception as e:
+                try:
+                    error_reason = f"{error_reason} - {repr(response)}"
+                except Exception as f:
+                    error_reason = f"{error_reason} - {f}"
+            total_time = time.time() - response.created
+            if not iserror:
+                try:
+                    cost = completion_cost(response)
+                except:
+                    log.debug(f"Failed to get cost from response for {self.runtime_vars['litellm_version_string']}")
+
+                try:
+                    total_tokens = response.usage.total_tokens
+                    prompt_tokens = response.usage.prompt_tokens
+                    completion_tokens = response.usage.completion_tokens
+                except:
+                    log.debug(f"Failed to get usage from response for {self.runtime_vars['litellm_version_string']}")
+        else:
+            iserror = True
+            error_reason = f'{resp}'
+            raw_response = f'{resp}'
+
+        answer = self._build_answer(text=raw_response,
+                                    generation_time=total_time,
+                                    iserror=iserror,
+                                    error_reason=error_reason,
+                                    cost=cost,
+                                    total_tokens=total_tokens,
+                                    completion_tokens=completion_tokens,
+                                    prompt_tokens=prompt_tokens,
+                                    isunsafe=self.isunsafe)
+        return answer
+
+
+    def _batch_completion(self, model: str, messages_batch: list[dict],
+                          temperature: float = 0.0,
+                          max_tokens: int = 4096,
+                          completions: int = 1) -> list[ModelResponse]:
+
+        #! we need to isolate the batch completion to allow various implementation to pass additonals parameters
+        batch_responses = batch_completion(
+            model=model,
+            messages=messages_batch,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            n=completions,
+            api_key=self.runtime_vars.get('api_key'))
+        return batch_responses
+
+    def _completion(self,
+                    model: str,
+                    messages: list[dict],
+                    temperature: float = 0.0,
+                    max_tokens: int = 4096,
+                    completions: int = 1) -> ModelResponse:
+        #! we need to isolate the batch completion to allow various implementation to pass additonals parameters
+        resp = completion(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            n=completions,
+            api_key=self.runtime_vars.get('api_key'))
+        return resp
