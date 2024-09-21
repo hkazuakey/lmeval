@@ -17,7 +17,7 @@ class Media(CustomModel):
     original_path: str = Field(default="")
 
     # used to pass the content during evaluation from benchmark archive
-    content: bytes = Field(default_factory=bytes, exclude=True)
+    content: bytes = Field(default_factory=bytes)
 
     def __str__(self) -> str:
         return str(self.filetype.value)

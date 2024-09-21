@@ -4,9 +4,16 @@
 ### Changed
 - File format to support multi-shot and multi-step execution
 - Moved from poetry to uv
+- Improved pandas data export to include tokens / cost and time tracking
 
 ### Removed
 - Uselss dependencies now that we rely on litellm for many of the models.
+
+### Fixed
+
+- Serialization bugs
+- hello world colab
+
 
 ## [0.6.0] - 2024-09-13
 

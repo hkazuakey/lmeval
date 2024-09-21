@@ -1,5 +1,5 @@
 """Unit tests for benchmark."""
-import os
+
 import pytest
 from time import time
 from lmeval import Benchmark, Category, load_benchmark, list_benchmarks
@@ -8,8 +8,6 @@ from lmeval.scorers import TextExactSensitive
 from lmeval import TaskType, QuestionSource
 from lmeval.prompts import QuestionOnlyPrompt
 from lmeval.utils import Path
-from lmeval import get_scorer
-from lmeval import ScorerType
 
 
 @pytest.fixture
@@ -35,6 +33,7 @@ def bench():
     question.lm_answers[str(prompt)][model.version_string] = lmanswer
 
     return benchmark
+
 
 def test_querying(bench):
     "test querying"
@@ -124,71 +123,3 @@ def test_creation_and_serialization(tmp_path_factory):
     bechmarks_paths = list_benchmarks(bench_dir.as_posix())
     assert len(bechmarks_paths) == 1
     assert bechmarks_paths[0] == path
-
-
-def test_double_save(tmp_path_factory, bench):
-    # serialize the benchmark
-    bench_dir = tmp_path_factory.mktemp("benchamrk_files") / f"{int(time())}"
-    path = bench_dir / "benchmark_test.lmarxiv"
-    path = path.as_posix()
-    bench.save(path)
-
-    # reload
-    benchmark2 = load_benchmark(path)
-    assert bench.name == benchmark2.name
-
-    # save again
-    benchmark2.save(path)
-    benchmark3 = load_benchmark(path)
-    assert benchmark2.name == benchmark3.name
-
-def test_save_load_multimedia_benchmark(tmp_path_factory):
-    bench_dir = tmp_path_factory.mktemp("benchmark_files") / f"{int(time())}"
-    path = bench_dir / "benchmark_test.lmarxiv"
-    SAVE_PATH = path.as_posix()
-    # create a benchmark object
-    benchmark = Benchmark(name='Cat Visual Questions',
-                        description='Ask questions about cats picture')
-
-    # define category
-    category = Category(name='cat Q/A')
-    benchmark.categories.append(category)
-
-    # define task
-    scorer = get_scorer(ScorerType.contain_text_insensitive)
-    task = Task(name='Eyes color', type=TaskType.text_generation, scorer=scorer)
-    category.tasks.append(task)
-
-    # add questions
-    source = QuestionSource(name='cookbook')
-    # cat 1 question - create question then add media image
-    qtxt = "what is the colors of eye?"
-    question = Question(id=0, question=qtxt,
-                        answer='blue', source=source)
-
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    image_path = os.path.join(current_dir, 'models/data/cat.jpg')
-    question.add_media(image_path)
-    task.questions.append(question)
-
-    # save benchmark
-    benchmark.save(SAVE_PATH)
-    filename = benchmark.categories[0].tasks[0].questions[0].medias[0].filename
-    content_len = len(benchmark.categories[0].tasks[0].questions[0].medias[0].content)
-
-    benchmark2 = load_benchmark(SAVE_PATH)
-    assert benchmark.categories[0].tasks[0].questions[0].question == qtxt
-    assert benchmark2.categories[0].tasks[0].questions[0].medias[0].modality == 'image'
-    assert benchmark2.categories[0].tasks[0].questions[0].medias[0].filename == filename
-    content_len2 = len(benchmark2.categories[0].tasks[0].questions[0].medias[0].content)
-    assert content_len2 == content_len
-
-    benchmark2.save(SAVE_PATH)
-    assert benchmark2.categories[0].tasks[0].questions[0].medias[0].modality == 'image'
-    assert benchmark2.categories[0].tasks[0].questions[0].medias[0].filename == filename
-
-
-    benchmark3 = load_benchmark(SAVE_PATH)
-    assert benchmark.name == benchmark3.name
-    assert benchmark3.categories[0].tasks[0].questions[0].question == qtxt
-    assert benchmark3.categories[0].tasks[0].questions[0].medias[0].modality == 'image'

@@ -34,20 +34,25 @@ class LMDBArchive(Archive):
             p = utils.Path(self.path)
             if not p.exists():
                 p.mkdir(parents=True)
-        self.arxiv = lmdb.open(self.path, map_size=map_size)
+        self.path = str(self.path)
+        try:
+            self.arxiv = lmdb.open(self.path, map_size=map_size)
+        except Exception as e:
+            raise ValueError(f"Error opening LMDB archive at {self.path}: {e}")
+
         self.compression_level = compression_level
         self.keyfname = keyfname
         self.key = ""
         self.filesinfo_name = "files_info.json"
         self.filesinfo = {}  # used to track files
-        
+
     def __del__(self):
         if self.arxiv:
             self.persist()
             self.arxiv.close()
             if self.temp_dir is not None:
                 self.temp_dir.cleanup()
-    
+
     def write(self, name: str, data: bytes|str, encrypted: bool):
 
         # compress data
@@ -72,7 +77,7 @@ class LMDBArchive(Archive):
 
             # update filesinfo
             compressed_filesinfo = json.dumps(self.filesinfo).encode()
-            compressed_filesinfo = zlib.compress(compressed_filesinfo, 
+            compressed_filesinfo = zlib.compress(compressed_filesinfo,
                                                  level=self.compression_level)
             txn.put(self.filesinfo_name.encode(), compressed_filesinfo)
 

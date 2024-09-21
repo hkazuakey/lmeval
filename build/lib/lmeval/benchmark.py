@@ -2,7 +2,6 @@ from collections import defaultdict
 from datetime import datetime
 from typing import List
 
-from lmeval.media import Media
 from lmeval import utils
 from lmeval.archive import LMDBArchive
 from lmeval.custom_model import CustomModel
@@ -48,9 +47,6 @@ class Benchmark(CustomModel):
     prompts: List[Prompt] = Field(default_factory=list)
     categories: List[Category] = Field(default_factory=list)
 
-    # used to track the number of media files stored in the archive
-    num_medias: int = Field(default=0)
-
     def __str__(self) -> str:
         return str(self.name)
 
@@ -62,27 +58,15 @@ class Benchmark(CustomModel):
                 for qid, question in enumerate(task.questions):
                     for prompt_version, data in question.lm_answers.items():
                         for model_version, resp in data.items():
-                            total_time = sum([s.execution_time for s in resp.steps])
-                            total_cost = sum([s.cost for s in resp.steps])
-                            total_tokens = sum([s.total_tokens for s in resp.steps])
-                            completion_tokens = sum([s.completion_tokens for s in resp.steps])
-                            prompt_tokens = sum([s.prompt_tokens for s in resp.steps])
                             records.append({
                                 "qid": qid,
                                 "category": category.name,
                                 "task": task.name,
                                 "task_type": task.type,
-                                "question": question.question,
-                                "num_steps": len(resp.steps),
                                 "prompt": prompt_version,
                                 "model": model_version,
                                 "score": resp.score,
-                                "punting": int(resp.ispunting),
-                                "total_time": total_time,
-                                "total_cost": total_cost,
-                                "total_tokens": total_tokens,
-                                "completion_tokens": completion_tokens,
-                                "prompt_tokens": prompt_tokens
+                                "punting": int(resp.ispunting)
                             })
         return pd.DataFrame(records)
 
@@ -120,32 +104,26 @@ class Benchmark(CustomModel):
 
         # load media content into memory
         # we do in two steps to show progress bar
-        to_save: list[Media] = []
+        to_load = []
         for category in self.categories:
             for task in category.tasks:
                 for question in task.questions:
                     for media in question.medias:
-                        to_save.append(media)
-
-        if to_save:
-            self.num_medias = len(to_save)
-            for media in tqdm(to_save, desc="Saving medias content in benchmark archive"):
+                        to_load.append(media)
+        if to_load:
+            for media in tqdm(to_load, desc="Saving medias content in benchmark archive"):
                 fname = f"media/{media.filename}"
 
-                # LMDB needs us to restore everytime we write
                 # already stored -- we dedup accross questions
-                # if media.is_stored:
-                #     assert fname in archive.list_files(), f"media {fname} not found in archive but marked as stored"
-                #     continue
+                if media.is_stored:
+                    assert fname in archive.list_files(), f"media {fname} not found in archive but marked as stored"
+                    continue
 
-                if media.content:
-                    content = media.content
-                else:
-                    if not utils.Path(media.original_path).exists():
-                        raise ValueError(f"media {media.original_path} not found")
+                if not utils.Path(media.original_path).exists():
+                    raise ValueError(f"media {media.original_path} not found")
 
-                    # load and save content in the arxiv
-                    content = utils.Path(media.original_path).read_bytes()
+                # load and save content in the arxiv
+                content = utils.Path(media.original_path).read_bytes()
                 archive.write(fname, content, encrypted=True)
 
                 # remove potential PII and mark as stored
@@ -170,21 +148,9 @@ class Benchmark(CustomModel):
         # serialize the benchmark data
         archive.write(BENCHMARK_FNAME, self.model_dump_json().encode(), encrypted=True)
 
+
         if debug:
             print(f"Saved benchmark to {path}")
-
-        # reload medias as saving removed them
-        pb = tqdm(total=self.num_medias, desc="Reloading medias content from benchmark archive")
-        for category in self.categories:
-            for task in category.tasks:
-                for question in task.questions:
-                    for media in question.medias:
-                        fname = f"media/{media.filename}"
-                        media.content = archive.read(fname)
-                        media.is_stored = True
-                        pb.update(1)
-        pb.close()
-
 
     def get_category(self, category_name: str) -> Category:
         """Get a category by name
