@@ -34,7 +34,8 @@ class QuestionSource(CustomModel):
 
 
 class Question(CustomModel):
-    id: int  # we need for (de)serialization
+    # we need it for (de)serialization - automated added by Task.add()
+    id: int = Field(default=-1)
     question: str
     language: str = Field(default="en")
 

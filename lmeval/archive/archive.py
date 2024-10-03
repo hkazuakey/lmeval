@@ -22,6 +22,21 @@ try:
 except ImportError:
     import json
 
+from ..custom_model import CustomModel
+
+
+class FileInfo(CustomModel):
+    "FileInfo represents archive file metadata"
+    id: int
+    name: str
+    size: int
+    encrypted: bool
+    compressed: bool
+    update_time: int
+    hash: str
+    modality: str
+    filetype: str
+
 
 
 class Archive(abc.ABC):
@@ -69,15 +84,16 @@ class Archive(abc.ABC):
 
     def write_json(self, name: str, value, encrypted: bool = True):
         data = json.dumps(value)
-        self.write(name, data, encrypted)
+        self.write(name, data, encrypted, file_type="json", modality="data")
 
     @abc.abstractmethod
-    def write(self, name: str, value: str| bytes, encrypted: bool = True):
+    def write(self, name: str, value: str| bytes, encrypted: bool = True,
+              file_type: str = "", modality: str = ""):
         pass
 
     @abc.abstractmethod
-    def list_files(self) -> list[str]:
-        "return the list of files"
+    def files_info(self) -> list[FileInfo]:
+        "return files metadata"
         pass
 
     @abc.abstractmethod

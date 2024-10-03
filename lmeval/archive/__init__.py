@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .lmdb_archive import LMDBArchive
-from .archive import Archive
-
+# from .lmdb_archive import LMDBArchive  # not used by default
+from .archive import Archive, FileInfo
+from .sqlite_archive import SQLiteArchive
 
 __all__ = [
     "Archive",
-    "LMDBArchive"
+    "FileInfo",
+    "SQLiteArchive",
 ]

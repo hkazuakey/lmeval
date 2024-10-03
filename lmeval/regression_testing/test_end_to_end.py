@@ -35,25 +35,25 @@ def  test_e2e_benchmarking(gemini, gemini_pro15):
     # add category
     category_name = 'eu'
     category = Category(name=category_name, description='European geography questions')
-    benchmark.categories.append(category)
+    benchmark.add_category(category)
 
     # add boolean task and questions
     task = Task(name='capital_bool', type=TaskType.boolean, scorer=get_scorer(ScorerType.boolean_answer))
     for idx in range(NUM_QUESTIONS):
         # random capital question
         data = get_country_boolean()
-        question = Question(id=idx, question=data['question'], answer=data['answer'])
-        task.questions.append(question)
-    benchmark.categories[0].tasks.append(task)
+        question = Question(question=data['question'], answer=data['answer'])
+        task.add_question(question)
+    benchmark.categories[0].add_task(task)
 
     # adding a 2nd task with generation text to check heterogenous tasks support
     task2 = Task(name='capital_gen', type=TaskType.text_generation, scorer=get_scorer(ScorerType.contain_text_insensitive))
     for idx in range(NUM_QUESTIONS):
         # random capital question
         data = get_country_generation()
-        question = Question(id=idx, question=data['question'], answer=data['answer'])
-        task2.questions.append(question)
-    benchmark.categories[0].tasks.append(task2)
+        question = Question(question=data['question'], answer=data['answer'])
+        task2.add_question(question)
+    benchmark.categories[0].add_task(task2)
 
     for category in benchmark.categories:
         for task in category.tasks:

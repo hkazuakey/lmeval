@@ -16,24 +16,8 @@ source .venv/bin/activate  # or open a new term in vscode after accepting the ne
 uv pip install -e .
 ```
 
-### How to use a custom template / custom prompt?
-
-Import any standard prompt that match the type of task you want to perform and simply
-supply at least the `name` and `template` arguments. Supplying a custom name,
-and potentially `version` is mandatory as the benchmark track performance for
-each `prompt/version` so otherwise your results will be clamped.
-
-```python
-from lmeval.prompts import QuestionOnlyPrompt
-
-prompt = QuestionOnlyPrompt(name="mycustom prompt",
-                            template="""
-                            This is a custom prompt:
-                             - question: {{question.question}}
-                             - answer: {{question.answer}}
-                            """"
-```
-
 ## Disclaimer
 
-This is not a Google product.
+- This is not a Google product.
+
+- When using private datasets, remember that questions may be sent to your chosen model providers for evaluation if the requested results aren't already available. Ensure this aligns with your data policies regarding external processing of sensitive information.

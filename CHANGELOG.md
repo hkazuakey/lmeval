@@ -1,4 +1,21 @@
 # Changelog
+## [0.8.0] - 2024-10-03
+
+### Added
+ - Added `Task()` subclasses such as`TextGenerationTask()`, `YesNoTask()`
+ to make benchmark creation easier by simplifying the common cases.
+- Added `Category` `.add_task()` / `delete_task()` / `get_task()` to simplify the benchmark creation
+- Added `Task` `.add_question()` / `.delete_question()` / `get_question()`
+
+### Changed
+- Improved the `quick_receipts` notebook
+- Storage system now use `sqlite` for increased compatibility and performance.
+
+### Fixed
+- Serialization where images were uncessarily compressed
+- Multiples smalls bugs
+
+
 ## [0.7.0] - 2024-09-20
 
 ### Changed

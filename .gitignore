@@ -1,3 +1,4 @@
+build/
 requirements.txt
 config.toml
 keys.json

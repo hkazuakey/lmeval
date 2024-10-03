@@ -18,7 +18,7 @@ from typing import List
 
 from lmeval.media import Media
 from lmeval import utils
-from lmeval.archive import LMDBArchive
+from lmeval.archive import SQLiteArchive, FileInfo
 from lmeval.custom_model import CustomModel
 from lmeval.enums import ScorerType, Modality, TaskLevel
 from lmeval.logger import log
@@ -45,6 +45,38 @@ class Category(CustomModel):
 
     def __str__(self) -> str:
         return str(self.name)
+
+    def get_task(self, task_name: str) -> Task:
+        """Get a task by name
+
+        Args:
+            task_name: Task name
+
+        Returns:
+            Task: The task if it exists, None otherwise
+        """
+        for task in self.tasks:
+            if task.name == task_name:
+                return task
+        return None
+
+    def add_task(self, task: Task):
+        """Add a task to the category"""
+        if self.get_task(task.name):
+            raise ValueError(f"Task {task.name} already exists")
+        self.tasks.append(task)
+
+    def delete_task(self, task_name: str):
+        """Delete a task by name
+
+        Args:
+            task_name: Task name
+        """
+        task = self.get(task_name)
+        if task:
+            self.tasks.remove(task)
+        else:
+            raise ValueError(f"Task {task_name} not found")
 
 
 # [Benchmark]
@@ -119,12 +151,12 @@ class Benchmark(CustomModel):
             use_tempfile = utils.is_google()
         # use default serializer if needed
         if not archive:
-            archive = LMDBArchive(path, use_tempfile=use_tempfile, restore=False)
+            archive = SQLiteArchive(path, use_tempfile=use_tempfile, restore=False)
 
         # only perform fname check for ondisk
-        if isinstance(archive, LMDBArchive):
-            if not path.endswith(".lmarxiv"):
-                raise ValueError("Path should end with .lmarxiv")
+        if isinstance(archive, SQLiteArchive):
+            if not path.endswith(".db"):
+                raise ValueError("Path should end with .db")
 
             # create path if it doesn't exist
             utils.Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -146,12 +178,6 @@ class Benchmark(CustomModel):
             for media in tqdm(to_save, desc="Saving medias content in benchmark archive"):
                 fname = f"media/{media.filename}"
 
-                # LMDB needs us to restore everytime we write
-                # already stored -- we dedup accross questions
-                # if media.is_stored:
-                #     assert fname in archive.list_files(), f"media {fname} not found in archive but marked as stored"
-                #     continue
-
                 if media.content:
                     content = media.content
                 else:
@@ -160,7 +186,10 @@ class Benchmark(CustomModel):
 
                     # load and save content in the arxiv
                     content = utils.Path(media.original_path).read_bytes()
-                archive.write(fname, content, encrypted=True)
+                archive.write(fname, content, encrypted=True,
+                              compress=False,
+                              modality=media.modality,
+                              file_type=media.filetype)
 
                 # remove potential PII and mark as stored
                 media.original_path = ""
@@ -182,7 +211,9 @@ class Benchmark(CustomModel):
         archive.write_json(STATS_FNAME, self.get_stats(), encrypted=False)
 
         # serialize the benchmark data
-        archive.write(BENCHMARK_FNAME, self.model_dump_json().encode(), encrypted=True)
+        archive.write(BENCHMARK_FNAME, self.model_dump_json().encode(),
+                      encrypted=True, compress=True, file_type="json",
+                      modality="data")
 
         if debug:
             print(f"Saved benchmark to {path}")
@@ -199,6 +230,17 @@ class Benchmark(CustomModel):
                         pb.update(1)
         pb.close()
 
+    def add_category(self, category: Category):
+        """Add a category to the benchmark
+
+        Args:
+            category (Category): category to add
+        """
+        # check category names are unique
+        if self.get_category(category.name):
+            raise ValueError(f"Category {category.name} already exists")
+        self.categories.append(category)
+
 
     def get_category(self, category_name: str) -> Category:
         """Get a category by name
@@ -206,16 +248,13 @@ class Benchmark(CustomModel):
         Args:
             category_name: Category name
 
-        Raises:
-            ValueError: Category not found
-
         Returns:
-            Category: The category
+            Category: The category if it exists, None otherwise
         """
         for category in self.categories:
             if category.name == category_name:
                 return category
-        raise ValueError(f"Category {category_name} not found")
+        return None
 
     def get_task(self, category_name: str, task_name: str) -> Task:
         """Get a task group by path: category_name/task_group_name
@@ -232,12 +271,8 @@ class Benchmark(CustomModel):
         """
 
         category = self.get_category(category_name)
-        for task in category.tasks:
-            if task.name == task_name:
-                return task
-        task_names = [task.name for task in category.tasks]
-        raise ValueError(f"Task {task_name} not found - available tasks: {task_names}")
-
+        task = category.get_task(task_name)
+        return task
 
     def get_stats(self):
         models_stats = {}
@@ -391,12 +426,27 @@ class Benchmark(CustomModel):
             print(tabulate(rows, headers=["Model", "Num Answers", "Avg Score", "Num Punts"]))
 
 
+def get_benchmark_fileinfo(path: str) -> list[FileInfo]:
+    "Return benchmark files metadata"
+    archive = SQLiteArchive(path=path)
+    return archive.files_info()
+
+def list_benchmark_fileinfo(path: str):
+    finfos = get_benchmark_fileinfo(path)
+    rows = []
+    for finfo in finfos:
+        row = [finfo.id, finfo.name, finfo.size, finfo.modality, finfo.filetype,
+               finfo.compressed, finfo.encrypted]
+        rows.append(row)
+    print(tabulate(rows, headers=["id", 'name', 'size', 'modality', 'filetype',
+                                  'compressed?', 'encrypted']))
+
+
 def load_benchmark(path: str, archive = None, use_tempfile: bool | None = None) -> Benchmark:
     "Reload a benchmark from a file path"
     # use default serializer if needed
     if not archive:
-        archive = LMDBArchive(path, use_tempfile=use_tempfile, restore=True)
-
+        archive = SQLiteArchive(path, use_tempfile=use_tempfile, restore=True)
 
     # reload benchmark data
     benchmark = Benchmark.model_validate(archive.read_json(BENCHMARK_FNAME))
@@ -426,31 +476,28 @@ def load_benchmark(path: str, archive = None, use_tempfile: bool | None = None) 
     return benchmark
 
 
+
 def list_benchmarks(dir_name: str, archive = None, use_tempfile: bool | None = None) -> List[str]:
     "List all benchmarks"
-    benchmark_paths = utils.match_files(dir_name, ".*[.]lmarxiv$")
+    benchmark_paths = utils.match_files(dir_name, ".*[.]db$")
     rows = []
     for idx, path in enumerate(benchmark_paths):
         parent = utils.Path(path).parent.name
         # use default serializer if needed
         if not archive:
-            archive = LMDBArchive(path, use_tempfile=use_tempfile)
-        files = archive.list_files()
-        if METADATA_FNAME in files:
-            metadata = archive.read_json(METADATA_FNAME)
-            name = metadata['name']
-            version = metadata['version']
-        else:
-            name = version = "n/a"
-
-        if STATS_FNAME in files:
-            stats = archive.read_json(STATS_FNAME)
-            categories = len(stats['categories_stats'])
-            questions = stats['questions']
-            models = len(stats['models_stats'])
-            answers = stats['answers']
-        else:
-            models = categories = questions = answers = 'n/a'
+            archive = SQLiteArchive(path, use_tempfile=use_tempfile)
+        filesinfo = archive.files_info()
+        for finfo in filesinfo:
+            if finfo.name == METADATA_FNAME:
+                metadata = archive.read_json(METADATA_FNAME)
+                name = metadata['name']
+                version = metadata['version']
+            elif finfo.name == STATS_FNAME:
+                stats = archive.read_json(STATS_FNAME)
+                categories = len(stats['categories_stats'])
+                questions = stats['questions']
+                models = len(stats['models_stats'])
+                answers = stats['answers']
 
         rows.append([idx, name, version, parent, categories, questions, models, answers, path])
 

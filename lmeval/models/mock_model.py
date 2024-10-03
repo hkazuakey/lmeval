@@ -42,9 +42,9 @@ class MockModel(LMModel):
         publisher="Google",
         version_string=model_version,
     )
-    self.runtime_vars["request_response"] = (
-        {} if request_response is None else request_response
-    )
+    req  = request_response if request_response is not None else {}
+    self.runtime_vars["request_response"] = req
+
     if default_response is not None:
       self.runtime_vars["default_response"] = default_response
 
@@ -70,7 +70,7 @@ class MockModel(LMModel):
                                  error_reason="")
     elif "default_response" in self.runtime_vars:
         default_response = self.runtime_vars["default_response"]
-        answer = self._build_answer(request_response[prompt],
+        answer = self._build_answer(default_response,
                                    generation_time=0.2,
                                    iserror=False,
                                    error_reason="")

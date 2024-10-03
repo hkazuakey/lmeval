@@ -112,7 +112,7 @@ def test_creation_and_serialization(tmp_path_factory):
 
     # serialize the benchmark
     bench_dir = tmp_path_factory.mktemp("benchamrk_files") / f"{int(time())}"
-    path = bench_dir / "benchmark_test.lmarxiv"
+    path = bench_dir / "benchmark_test.db"
     path = path.as_posix()
     benchmark.save(path)
 
@@ -143,7 +143,7 @@ def test_creation_and_serialization(tmp_path_factory):
 def test_double_save(tmp_path_factory, bench):
     # serialize the benchmark
     bench_dir = tmp_path_factory.mktemp("benchamrk_files") / f"{int(time())}"
-    path = bench_dir / "benchmark_test.lmarxiv"
+    path = bench_dir / "benchmark_test.db"
     path = path.as_posix()
     bench.save(path)
 
@@ -158,7 +158,7 @@ def test_double_save(tmp_path_factory, bench):
 
 def test_save_load_multimedia_benchmark(tmp_path_factory):
     bench_dir = tmp_path_factory.mktemp("benchmark_files") / f"{int(time())}"
-    path = bench_dir / "benchmark_test.lmarxiv"
+    path = bench_dir / "benchmark_test.db"
     SAVE_PATH = path.as_posix()
     # create a benchmark object
     benchmark = Benchmark(name='Cat Visual Questions',
