@@ -1,4 +1,15 @@
 # Changelog
+## [0.9.0]
+
+### Added
+
+- Support for custom openai compatible endpoints using LiteLLM
+- Support for multiple choices questions with multiple correct answers
+
+### Changed
+
+- Renamed litellm_models to litellm
+
 ## [0.8.0] - 2024-10-03
 
 ### Added

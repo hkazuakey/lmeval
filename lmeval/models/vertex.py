@@ -17,7 +17,7 @@ from litellm import check_valid_key, completion, batch_completion
 from litellm import ModelResponse
 
 from ..media import Modality
-from .litellm_model import LiteLLMModel
+from .litellm import LiteLLMModel
 try:
     from google.cloud import aiplatform
 except ImportError:

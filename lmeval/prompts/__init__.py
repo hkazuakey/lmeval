@@ -16,7 +16,7 @@ from .prompt import Prompt
 from .text_generation_prompts import QuestionOnlyPrompt, ChainOfThoughtsPrompt, SingleWordAnswerPrompt
 from .adversarial_prompts import AdversarialChainOfThoughtsPrompt
 from .boolean_prompts import TrueOrFalseAnswerPrompt
-from .multi_choices_prompts import MultiChoicesPrompt
+from .multi_choices_prompts import MultiChoicesPrompt, MultiChoicesMultiAnswersPrompt
 __all__ = [
             "Prompt",
 
@@ -25,6 +25,7 @@ __all__ = [
 
             # multiple choices
             "MultiChoicesPrompt",
+            "MultiChoicesMultiAnswersPrompt",
 
             # Text gen
             "QuestionOnlyPrompt",

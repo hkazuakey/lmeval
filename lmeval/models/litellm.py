@@ -34,7 +34,19 @@ class LiteLLMModel(LMModel):
                  model_version: str,
                  litellm_model: str,
                  publisher: str,
-                 modalities: list[Modality] = [Modality.text]):
+                 modalities: list[Modality] = [Modality.text],
+                 base_url: Optional[str] = None,
+                 api_key: Optional[str] = None):
+        """Init a LiteLLMModel compatible model
+
+        Args:
+            model_version: the name of the model as stored in the benchmark
+            litellm_model: the internal name used by litellm
+            publisher: the publisher name of the model as stored in the benchmark
+            modalities: Which modality are supported by the model. Defaults to [Modality.text].
+            base_url: Custom hosted endpoint. Defaults to "".
+            api_key: Model API key. Defaults to "".
+        """
 
         # clean up the name
         name = ' '.join(model_version.split('-'))
@@ -46,6 +58,10 @@ class LiteLLMModel(LMModel):
 
         # store the litellm version name to call it in completions
         self.runtime_vars['litellm_version_string'] = litellm_model
+        self.runtime_vars['api_key'] = api_key
+        self.runtime_vars['base_url'] = base_url
+        self.runtime_vars['is_custom'] = True if base_url else False
+
 
 
     def batch_generate_text(self, prompts: list[str], medias: list[list[Media]],
@@ -143,7 +159,13 @@ class LiteLLMModel(LMModel):
             total_time = time.time() - response.created
             if not iserror:
                 try:
-                    cost = completion_cost(response)
+                    # compute cost for known models
+                    if not self.runtime_vars['is_custom']:
+                        try:
+                            cost = completion_cost(response)
+                        except:
+                            cost = 0
+                            log.debug(f"Failed to get cost for model {self.runtime_vars['litellm_version_string']}")
                 except:
                     log.debug(f"Failed to get cost from response for {self.runtime_vars['litellm_version_string']}")
 
@@ -182,7 +204,8 @@ class LiteLLMModel(LMModel):
             temperature=temperature,
             max_tokens=max_tokens,
             n=completions,
-            api_key=self.runtime_vars.get('api_key'))
+            api_key=self.runtime_vars.get('api_key'),
+            base_url=self.runtime_vars.get('base_url'))
         return batch_responses
 
     def _completion(self,
@@ -198,5 +221,6 @@ class LiteLLMModel(LMModel):
             temperature=temperature,
             max_tokens=max_tokens,
             n=completions,
-            api_key=self.runtime_vars.get('api_key'))
+            api_key=self.runtime_vars.get('api_key'),
+            base_url=self.runtime_vars.get('base_url'))
         return resp

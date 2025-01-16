@@ -19,7 +19,7 @@ from .boolean_answer import BooleanAnswerScorer
 from .exact_text import TextExactSensitive, TextExactInsensitive
 from .contain_text import ContainTextSensitive, ContainTextInsensitive
 from .regex import TextSensitiveRegex, TextInsensitiveRegex
-from .multiple_choices import ContainAnswerLetterInsensitive
+from .multiple_choices import ContainAnswerLetterInsensitive, ContainAnswerLettersInsensitive
 from .punt_detector import PuntDetector
 
 __all__ = [
@@ -35,5 +35,7 @@ __all__ = [
     "ContainTextInsensitive",
     "TextSensitiveRegex",
     "TextInsensitiveRegex",
+    "ContainAnswerLetterInsensitive",
+    "ContainAnswerLettersInsensitive",
     "PuntDetector",
 ]

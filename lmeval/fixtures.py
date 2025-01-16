@@ -111,10 +111,10 @@ def get_country_multi_choice(num_choices: int = 4) -> Dict[str, Any]:
 
 
 @pytest.fixture
-def gemini() -> lmmodel.LMModel:
+def gemini_mock() -> lmmodel.LMModel:
   return mock_model.MockGeminiModel(model_version="gemini-1.5-flash-001")
 
 
 @pytest.fixture
-def gemini_pro15() -> lmmodel.LMModel:
+def gemini_pro15_mock() -> lmmodel.LMModel:
   return mock_model.MockGeminiModel(model_version="gemini-1.5-pro-001")

@@ -13,9 +13,45 @@
 # limitations under the License.
 
 import pytest
-from lmeval.prompts import MultiChoicesPrompt
+from lmeval.prompts import MultiChoicesPrompt, MultiChoicesMultiAnswersPrompt
 from lmeval import Question, Task, TaskType
 from lmeval import get_scorer, ScorerType
+
+def test_multi_choices_multi_answers():
+    prompt = MultiChoicesMultiAnswersPrompt()
+    question_text = "What is true about Paris"
+    question = Question(id=1,
+                        question=question_text,
+                        answer="It is the capital of France",
+                        additional_answers=["The Louvre is there",
+                                            "The effeil tower is there"],
+                        choices=["It is the capital of Portugal",
+                                 "It is the capital of Germany",
+                                 "The Guggenheim museum is there",
+                                 "THe MoMa is there"])
+
+    task = Task(name="Paris Info", type=TaskType.multiple_choices_multiple_answers,
+                scorer=get_scorer(ScorerType.contains_answer_letters_insensitive))
+    rendered_prompt =  prompt.render(question, task)
+    print(prompt.template)
+    print(rendered_prompt)
+
+    assert question_text in rendered_prompt
+    for choice in question.choices:
+        assert choice in rendered_prompt
+    for answer in question.answer:
+        assert answer in rendered_prompt
+    for c in  ['A', 'B', 'C', 'D', 'E']:
+        assert f"\n{c}:" in rendered_prompt
+
+    # check that the answer letter is tied to the correct answer
+
+    assert f"{answer}" in rendered_prompt
+
+    # check that the additional answers are in the prompt
+    for additional_answer in question.additional_answers:
+        assert additional_answer in rendered_prompt
+
 
 def test_multi_choices():
     prompt = MultiChoicesPrompt()

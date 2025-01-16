@@ -53,8 +53,11 @@ class ScorerType(Enum):
   # boolean scorers
   boolean_answer = "boolean_answer"
 
-  # mutiple choices scorers that look at the letter
+  # mutiple choices scorers
+  # this one is for when there is a single correct answer
   contains_answer_letter_insensitive = "contains_answer_letter_insensitive"
+  # this one is for when there are multiple correct answers
+  contains_answer_letters_insensitive = "contains_answer_letters_insensitive"
 
   # simple text matching scorers
   text_exact_sensitive = "text_exact_sensitive"
@@ -101,6 +104,7 @@ class FileType(Enum):
 class TaskType(Enum):
   boolean = "boolean"
   multiple_choices = "multiple_choices"
+  multiple_choices_multiple_answers = "multiple_choices_multiple_answers"
   text_generation = "text_generation"
   image_generation = "image_generation"
   python_generation = "python_generation"

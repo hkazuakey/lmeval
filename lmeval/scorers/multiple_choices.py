@@ -18,6 +18,35 @@ from ..models import LMAnswer
 
 from ..enums import ScorerType, Modality
 
+class ContainAnswerLettersInsensitive(Scorer):
+    name: str = ScorerType.contains_answer_letters_insensitive.name
+    description: str = "Returns a score between 0 and 1 based on the number of correct answer letters present in the model answer"
+    type: ScorerType = ScorerType.contains_answer_letters_insensitive
+    modality: Modality = Modality.text
+
+    def score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
+        assert question.answer_letter is not None, "Answer letter is not provided - this is scorer can only be used with Multiple Choice question Prompts."
+        ma = self._cleanup(model_answer.answer).lower() # don't split this one
+        ma_len = len(ma.split(','))
+        qa = self._cleanup(question.answer_letter).lower().split(',')
+        qa_len = len(qa)
+        correct = 0
+
+        # print(f"model answer: {ma}")
+        # print(f"question answer: {qa}")
+
+        if not qa:
+            return 0.0
+
+        for c in qa:
+            c = c.strip()
+            # print(f"'{c}' in '{ma}' -> {c in ma}")
+            if c in ma:
+                correct += 1
+        # model has more answers than question
+        numerator = max(ma_len, qa_len)
+        return correct / numerator
+
 class ContainAnswerLetterInsensitive(Scorer):
     name: str = ScorerType.contains_answer_letter_insensitive.name
     description: str  = "Returns 1.0 if the answer letter is present in the model answer"
@@ -28,7 +57,8 @@ class ContainAnswerLetterInsensitive(Scorer):
         assert question.answer_letter is not None, "Answer letter is not provided - this is scorer can only be used with Multiple Choice question Prompts."
         ma = self._cleanup(model_answer.answer).lower()
         qa = self._cleanup(question.answer_letter).lower()
-        if qa in ma:
+
+        if qa and qa in ma:
             return 1.0
         else:
             return 0.0

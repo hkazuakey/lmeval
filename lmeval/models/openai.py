@@ -15,7 +15,7 @@
 import os
 from dotenv import load_dotenv
 from ..media import Modality
-from .litellm_model import LiteLLMModel
+from .litellm import LiteLLMModel
 from litellm import check_valid_key
 
 try:

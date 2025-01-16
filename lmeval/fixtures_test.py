@@ -13,14 +13,14 @@
 # limitations under the License.
 
 import pytest
-from .fixtures import eu_countries, get_country_boolean, get_country_multi_choice, gemini
+from .fixtures import eu_countries, get_country_boolean, get_country_multi_choice, gemini_mock
 
-def test_mock_gemini_fixture(gemini):
+def test_mock_gemini_fixture(gemini_mock):
 
     # check our model is working
     mock_answers = {'Say hello in french!': 'bonjour'}
-    gemini.set_request_response(mock_answers)
-    answer = gemini.generate_text('Say hello in french!')
+    gemini_mock.set_request_response(mock_answers)
+    answer = gemini_mock.generate_text('Say hello in french!')
 
     assert 'bonjour' in answer.answer.lower()
     assert not answer.iserror

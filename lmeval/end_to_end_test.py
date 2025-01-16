@@ -18,12 +18,14 @@ import re
 from pprint import pprint
 from lmeval import Benchmark, Category
 from lmeval import Task, Question
+from lmeval.models.gemini import GeminiModel
 from lmeval import get_scorer, list_scorers, ScorerType
 from lmeval import TaskType, QuestionSource, LMAnswer, LMModel
 from lmeval.prompts import QuestionOnlyPrompt, MultiChoicesPrompt, TrueOrFalseAnswerPrompt
+from lmeval.prompts import MultiChoicesPrompt, MultiChoicesMultiAnswersPrompt
 from lmeval import Question, Task, TaskType, ScorerType, Evaluator
 from lmeval.evaluator import EvalTask
-from .fixtures import gemini, gemini_pro15, get_country_boolean, get_country_multi_choice, get_country_generation
+from .fixtures import gemini_mock, gemini_pro15_mock, get_country_boolean, get_country_multi_choice, get_country_generation
 
 
 def _find_letter(answer: str, prompt: str):
@@ -33,7 +35,7 @@ def _find_letter(answer: str, prompt: str):
   return match.group(1)
 
 
-def  test_e2e_benchmarking(gemini, gemini_pro15):
+def  test_e2e_benchmarking(gemini_mock, gemini_pro15_mock):
     NUM_QUESTIONS = 2  # per task
 
     request_response = {}  # prompt and answers exptected
@@ -90,9 +92,9 @@ def  test_e2e_benchmarking(gemini, gemini_pro15):
 
 
     # setup eval
-    models = [gemini, gemini_pro15]   # two models to check multiple models support
-    gemini.set_request_response(request_response)
-    gemini_pro15.set_request_response(request_response)
+    models = [gemini_mock, gemini_pro15_mock]   # two models to check multiple models support
+    gemini_mock.set_request_response(request_response)
+    gemini_pro15_mock.set_request_response(request_response)
     # adding irrelevant prompt to check proper prompt selection
     prompts = [QuestionOnlyPrompt(), TrueOrFalseAnswerPrompt(), MultiChoicesPrompt()]
     evaluator = Evaluator(benchmark)
@@ -129,7 +131,7 @@ def  test_e2e_benchmarking(gemini, gemini_pro15):
 
                     print(f"Model: {model_name}, Prompt: {prompt_name}, Question: {question.question}, Answer: {answer.answer}, Score: {answer.score}")
 
-def test_e2e_boolean(gemini):
+def test_e2e_boolean(gemini_mock):
     NUM_QUESTIONS = 3
     category = Category(name='geo', description='Geography questions')
     task = Task(name='Cities', type=TaskType.boolean, scorer=get_scorer(ScorerType.boolean_answer))
@@ -148,13 +150,13 @@ def test_e2e_boolean(gemini):
         print('rendered_template:\n', rendered_question)
         # set mock data
         request_response[rendered_question] = data['answer']
-        gemini.set_request_response(request_response)
+        gemini_mock.set_request_response(request_response)
         # check prompt works correctly
-        answer = gemini.generate_text(rendered_question)
+        answer = gemini_mock.generate_text(rendered_question)
         assert data['answer'].lower() in answer.answer.lower()
 
         # check evaluator works correctly
-        etask = EvalTask(category=category, task=task, question=question, lm_model=gemini,
+        etask = EvalTask(category=category, task=task, question=question, lm_model=gemini_mock,
                         prompt=TrueOrFalseAnswerPrompt())
 
         etask = Evaluator.generate_answer(etask)
@@ -163,7 +165,7 @@ def test_e2e_boolean(gemini):
 
 
 
-def test_e2e_multi(gemini):
+def test_e2e_multi(gemini_mock):
     NUM_QUESTIONS = 5
     category = Category(name='geo', description='Geography questions')
     task = Task(name='Cities', type=TaskType.multiple_choices, scorer=get_scorer(ScorerType.contains_answer_letter_insensitive))
@@ -187,10 +189,10 @@ def test_e2e_multi(gemini):
         request_response[rendered_question] = _find_letter(
             data['answer'], rendered_question
         )
-        gemini.set_request_response(request_response)
+        gemini_mock.set_request_response(request_response)
 
         # check evaluator works correctly
-        etask = EvalTask(category=category, task=task, question=question, lm_model=gemini,
+        etask = EvalTask(category=category, task=task, question=question, lm_model=gemini_mock,
                         prompt=MultiChoicesPrompt())
 
         etask = Evaluator.generate_answer(etask)
@@ -200,7 +202,50 @@ def test_e2e_multi(gemini):
         assert etask.lm_answer.score == 1.0
 
 
-def test_e2e_text_generation(gemini):
+def test_e2e_multi_answers():
+    "We need the real Gemini for this one"
+    real_gemini = GeminiModel()
+    prompt = MultiChoicesMultiAnswersPrompt()
+    question_text = "What is true about Paris"
+    question = Question(id=1,
+                        question=question_text,
+                        answer="It is the capital of France",
+                        additional_answers=["The Louvre is there",
+                                            "The effeil tower is there"],
+                        choices=["It is the capital of Portugal",
+                                 "It is the capital of Germany",
+                                 "The Guggenheim museum is there",
+                                 "THe MoMa is there"])
+    category = Category(name='geo', description='Geography questions')
+
+    task = Task(name="Paris Info",
+                type=TaskType.multiple_choices_multiple_answers,
+                scorer=get_scorer(ScorerType.contains_answer_letters_insensitive))
+      # check prompt rendering
+    rendered_question = prompt.render(question, task)
+    assert question.question in rendered_question
+    for choice in question.choices:
+        assert choice in rendered_question
+    for answer in question.additional_answers:
+        assert answer in rendered_question
+
+    # check evaluator works correctly on a real model
+    etask = EvalTask(category=category, task=task, question=question,
+                    lm_model=real_gemini,
+                    prompt=MultiChoicesMultiAnswersPrompt())
+
+    etask = Evaluator.generate_answer(etask)
+    etask = Evaluator.score_answer(etask)
+
+    print('\nrendered:', rendered_question)
+    print('question_letter:', question.letters)
+    print("answer_letter", question.answer_letter)
+    print('lm_amswer:', etask.lm_answer.answer)
+    print('scorer_type', type(etask.task.scorer))
+    assert etask.lm_answer.score == 1.0
+
+
+def test_e2e_text_generation(gemini_mock):
     NUM_QUESTIONS = 3
     category = Category(name='geo', description='Geography questions')
     task = Task(name='Cities', type=TaskType.text_generation, scorer=get_scorer(ScorerType.contain_text_insensitive))
@@ -219,14 +264,14 @@ def test_e2e_text_generation(gemini):
         print('question:\n',  question)
         print('rendered_template:\n', rendered_question)
         request_response[rendered_question] = data['answer']
-        gemini.set_request_response(request_response)
+        gemini_mock.set_request_response(request_response)
 
         # check prompt works correctly
-        answer = gemini.generate_text(rendered_question)
+        answer = gemini_mock.generate_text(rendered_question)
         assert data['answer'].lower() in answer.answer.lower()
 
         # check evaluator works correctly
-        etask = EvalTask(category=category, task=task, question=question, lm_model=gemini,
+        etask = EvalTask(category=category, task=task, question=question, lm_model=gemini_mock,
                         prompt=QuestionOnlyPrompt())
 
         etask = Evaluator.generate_answer(etask)

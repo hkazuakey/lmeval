@@ -41,6 +41,8 @@ class Question(CustomModel):
 
     # answer
     answer: str
+    # additional answers e.g. for multiple choice questions
+    additional_answers: List[str] = Field(default_factory=list)
 
     # multiple choice questions only
     # Added at benchmark generation time

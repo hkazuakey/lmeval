@@ -17,7 +17,7 @@ from .scorer import Scorer
 
 from .dummy_scorer import Always1Scorer, Always0Scorer
 from .boolean_answer import BooleanAnswerScorer
-from .multiple_choices import ContainAnswerLetterInsensitive
+from .multiple_choices import ContainAnswerLetterInsensitive, ContainAnswerLettersInsensitive
 from .exact_text import TextExactInsensitive, TextExactSensitive
 from .regex import TextSensitiveRegex, TextInsensitiveRegex
 from .contain_text import ContainTextSensitive, ContainTextInsensitive
@@ -34,7 +34,7 @@ _SCORERS = {
 
     # multiple choices
     ScorerType.contains_answer_letter_insensitive: ContainAnswerLetterInsensitive,
-
+    ScorerType.contains_answer_letters_insensitive: ContainAnswerLettersInsensitive,
     # exact text
     ScorerType.text_exact_sensitive: TextExactSensitive,
     ScorerType.text_exact_insensitive: TextExactInsensitive,

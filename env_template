@@ -1,0 +1,7 @@
+# rename as .env so LMEval can pick them up automatically at load time
+OPENAI_API_KEY=""   # for openAI models
+GEMINI_API_KEY="" # for gemini models
+# For vertex models including partners
+# be careful some models are only available in specific locations
+VERTEX_PROJECT=""
+VERTEX_LOCATION="us-west4"
