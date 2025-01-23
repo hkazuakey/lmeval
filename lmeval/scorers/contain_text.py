@@ -25,7 +25,7 @@ class ContainTextSensitive(Scorer):
     type: ScorerType = ScorerType.contain_text_sensitive
     modality: Modality = Modality.text
 
-    def score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
+    def _score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
         ma = self._cleanup(model_answer.answer)
         qa = self._cleanup(question.answer)
 
@@ -41,7 +41,7 @@ class ContainTextInsensitive(Scorer):
     type: ScorerType = ScorerType.contain_text_insensitive
     modality: Modality = Modality.text
 
-    def score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
+    def _score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
         ma = self._cleanup(model_answer.answer).lower()
         qa = self._cleanup(question.answer).lower()
         if qa in ma:

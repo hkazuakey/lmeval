@@ -153,8 +153,10 @@ class LiteLLMModel(LMModel):
                 raw_response = response.choices[0].message.content
             except Exception as e:
                 try:
-                    error_reason = f"{error_reason} - {repr(response)}"
+                    iserror = True
+                    error_reason = f"{error_reason} - {repr(response)} - {(e)}"
                 except Exception as f:
+                    iserror = True
                     error_reason = f"{error_reason} - {f}"
             total_time = time.time() - response.created
             if not iserror:
@@ -175,10 +177,10 @@ class LiteLLMModel(LMModel):
                     completion_tokens = response.usage.completion_tokens
                 except:
                     log.debug(f"Failed to get usage from response for {self.runtime_vars['litellm_version_string']}")
-        else:
-            iserror = True
-            error_reason = f'{resp}'
-            raw_response = f'{resp}'
+            else:
+                iserror = True
+                error_reason = f'{resp}'
+                raw_response = ''
 
         answer = self._build_answer(text=raw_response,
                                     generation_time=total_time,

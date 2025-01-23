@@ -56,7 +56,7 @@ def test_multiple_answers():
     # expected good
     GOOD_ANSWERS_PAIRS = [['C', 'C'], ['C', 'c'], ['c', 'C'], ['c', 'c'],
                           ['C ', ' c'], [' c ', 'C'], ['a,b,c', 'c,a,b'],
-                          ['a,b,c', 'A,B,c'], ['A,B,C', 'c,a,b']]
+                          ['a,b,c', 'A,B,c'], ['a, b, c,', 'a, c, b ,'], ['A,B,C', 'c,a,b']]
     for pair in GOOD_ANSWERS_PAIRS:
         real_answer, model_answer = pair
         assert _eval_multiple_choice(real_answer, model_answer, scorer) == 1.0

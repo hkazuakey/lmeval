@@ -1,4 +1,11 @@
 # Changelog
+## [0.10.0] - 2025-01-23
+
+### Fixed
+
+- Fixed error reporting when a completion failed that did polute the benchmark results.
+
+
 ## [0.9.0]
 
 ### Added

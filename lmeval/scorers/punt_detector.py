@@ -53,7 +53,7 @@ class PuntDetector(Scorer):
     Reply with "X" where X is either "answered" or "refused" - provide a reason if possible.
     """
 
-    def score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
+    def _score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
             template = TemplateEngine(self.prompt)
             punt_prompt = template.render(question=question.question, response=model_answer.answer)
             if debug:

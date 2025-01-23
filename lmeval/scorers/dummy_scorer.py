@@ -24,7 +24,7 @@ class Always0Scorer(Scorer):
     type: ScorerType = ScorerType.always_0
     modality: Modality = Modality.multimodal
 
-    def score(self, model_answer: LMAnswer, question: Question, task) -> float:
+    def _score(self, model_answer: LMAnswer, question: Question, task) -> float:
         return 0.0
 
 class Always1Scorer(Scorer):
@@ -33,5 +33,5 @@ class Always1Scorer(Scorer):
     type: ScorerType = ScorerType.always_1
     modality: Modality = Modality.multimodal
 
-    def score(self, model_answer: LMAnswer, question: Question, task) -> float:
+    def _score(self, model_answer: LMAnswer, question: Question, task) -> float:
         return 1.0

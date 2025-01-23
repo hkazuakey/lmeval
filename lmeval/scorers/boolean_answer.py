@@ -25,7 +25,7 @@ class BooleanAnswerScorer(Scorer):
     type: ScorerType = ScorerType.boolean_answer
     modality: Modality = Modality.text
 
-    def score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
+    def _score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
         ma = self._cleanup(model_answer.answer).lower()
         qa = self._cleanup(question.answer).lower()
 

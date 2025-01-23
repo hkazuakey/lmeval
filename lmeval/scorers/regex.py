@@ -24,7 +24,7 @@ class TextSensitiveRegex(Scorer):
     type: ScorerType = ScorerType.text_exact_sensitive
     modality: Modality = Modality.text
 
-    def score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
+    def _score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
         mdl_answer = self._cleanup(model_answer.answer)
         answer_match = re.search(self.regex, mdl_answer)
         qa = self._cleanup(question.answer)
@@ -43,7 +43,7 @@ class TextInsensitiveRegex(Scorer):
     type: ScorerType = ScorerType.text_regex_insensitive
     modality: Modality = Modality.text
 
-    def score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
+    def _score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
         mdl_answer = self._cleanup(model_answer.answer).lower()
         answer_match = re.search(self.regex, mdl_answer)
         qa = self._cleanup(question.answer).lower()

@@ -141,7 +141,7 @@ class Step(CustomModel):
 
 class LMAnswer(CustomModel):
 
-    answer: str  # final answer
+    answer: str = Field(default='', description="Final answer")
 
     # record if we disabled the safety settings
     isunsafe: bool = Field(default=False)

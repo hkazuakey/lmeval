@@ -31,9 +31,20 @@ class Scorer(CustomModel):
     regex: str = Field(default='')
     model: LMModel | None = Field(default=None)
 
+    def _score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
+        "Function to be implemented by each scorer"
+        raise NotImplementedError
 
     def score(self, model_answer: LMAnswer, question: Question, task) -> float:
-        raise NotImplementedError
+        """Return the score for the model answer to the question
+
+        notes:
+         - if there is an error in the model answer, return -1.0 so we can filter it out
+        """
+        # always return 0.0 if the model answer is an error
+        if model_answer.iserror:
+            return -1.0 # so we can filter
+        return self._score(model_answer, question, task)
 
     def _cleanup(self, txt: str) -> str:
         "Clean up text for comparison"
