@@ -21,6 +21,7 @@ from typing import TypeVar, Generic, Optional
 import concurrent.futures
 import functools
 import lmeval
+import random
 import time
 
 from lmeval import utils
@@ -67,7 +68,6 @@ class EvalTask(CustomModel): #  Generic[M, P]):
 
 
 class Evaluator():
-
     """
     create a plan report
     add callback so the evaluation can be monitored
@@ -78,8 +78,11 @@ class Evaluator():
 
     """
 
-    def __init__(self, benchmark: str |  Benchmark, save_path:str = "",
-                 callback: Callback| None = None, use_tempfile: bool | None = None) -> None:
+    def __init__(self,
+                 benchmark: str | Benchmark,
+                 save_path: str = "",
+                 callback: Callback | None = None,
+                 use_tempfile: bool | None = None) -> None:
         "Instantiate the evaluator system for a given benchmark"  # fix docstring
         self.save_path = save_path
         if not self.save_path:
@@ -87,13 +90,18 @@ class Evaluator():
 
         if isinstance(benchmark, str):
             if benchmark == self.save_path:
-                print("benchmark_path and save_path are the same, results will be appended to the benchmark file.")
+                print(
+                    "benchmark_path and save_path are the same, results will be appended to the benchmark file."
+                )
             # fixme: catch error if path is not valid
-            self.benchmark: Benchmark = load_benchmark(benchmark, use_tempfile=use_tempfile)
+            self.benchmark: Benchmark = load_benchmark(
+                benchmark, use_tempfile=use_tempfile)
         elif isinstance(benchmark, (Benchmark, lmeval.benchmark.Benchmark)):
             self.benchmark = benchmark
         else:
-            raise ValueError(f"No benchmark or benchmark path provided - {type(benchmark)} provided")
+            raise ValueError(
+                f"No benchmark or benchmark path provided - {type(benchmark)} provided"
+            )
 
         # user supplied callback for integration
         self.callback = callback
@@ -109,8 +117,9 @@ class Evaluator():
         self.num_processed = 0
         self.num_saved = 0
 
-
-    def plan(self, models: M | list[M], prompts: P | list[P],
+    def plan(self,
+             models: M | list[M],
+             prompts: P | list[P],
              punt_detector: PuntDetector | None = None,
              max_evaluations_per_task: int = 100,
              display_report: bool = True):
@@ -118,23 +127,26 @@ class Evaluator():
         # stats
         total_evaluations = 0
         # category -> tasks -> prompt -> count
-        stats = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(int)))))
+        stats = defaultdict(lambda: defaultdict(lambda: defaultdict(
+            lambda: defaultdict(lambda: defaultdict(int)))))
 
         # track potential issues - e.g no prompt for a task type
         track_task_prompts: dict[Task, set[str]] = {}
 
         # boxing models and prompts if not lists
         models_list: list[M] = models if isinstance(models, list) else [models]
-        prompts_list: list[P] = prompts if isinstance(prompts, list) else [prompts]
+        prompts_list: list[P] = prompts if isinstance(prompts,
+                                                      list) else [prompts]
 
         # initial sanity checks
         # FIXME: call benchmark.validate() when implemented
         # check each model have a different version
-        versions  = set()
+        versions = set()
         for model in models_list:
             versions.add(model.version_string)
-        assert len(versions) == len(models_list), f"Models should have unique version strings - found {len(models_list)} models and {len(versions)} unique version strings"
-
+        assert len(versions) == len(
+            models_list
+        ), f"Models should have unique version strings - found {len(models_list)} models and {len(versions)} unique version strings"
 
         # plan the evaluations
         for category in self.benchmark.categories:
@@ -156,40 +168,50 @@ class Evaluator():
                             MODEL_VER = model.version_string
 
                             # check if the answer already exists
-                            if PROMT_VER in question.lm_answers and MODEL_VER in question.lm_answers[PROMT_VER]:
-                                stats[category.name][task.name][PROMT_VER][MODEL_VER][AnswerStatus.planned] += 1
+                            if PROMT_VER in question.lm_answers and MODEL_VER in question.lm_answers[
+                                    PROMT_VER]:
+                                stats[category.name][task.name][PROMT_VER][
+                                    MODEL_VER][AnswerStatus.planned] += 1
                                 continue
 
                             # create evaluation task and queue it
-                            evaltask = EvalTask(question=question,
-                                                category=category,
-                                                task=task,
-                                                lm_model=model,
-                                                lm_answer=None,
-                                                prompt=prompt,
-                                                instanciated_prompt=instanciated_prompt,
-                                                punt_detector=punt_detector)
+                            evaltask = EvalTask(
+                                question=question,
+                                category=category,
+                                task=task,
+                                lm_model=model,
+                                lm_answer=None,
+                                prompt=prompt,
+                                instanciated_prompt=instanciated_prompt,
+                                punt_detector=punt_detector)
 
                             # allows to cap the number of evaluations per task
-                            if stats[category.name][task.name][PROMT_VER][MODEL_VER][AnswerStatus.planned] >= max_evaluations_per_task:
-                                log.debug(f"Reached max evaluations for task {task.name}, skipping the rest.")
+                            if stats[category.name][
+                                    task.name][PROMT_VER][MODEL_VER][
+                                        AnswerStatus.
+                                        planned] >= max_evaluations_per_task:
+                                log.debug(
+                                    f"Reached max evaluations for task {task.name}, skipping the rest."
+                                )
                                 break
-
 
                             self._tasks[MODEL_VER].append(evaltask)
 
                             # tracking variables for potential errors
-                            track_task_prompts[task].add(prompt.version_string())
+                            track_task_prompts[task].add(
+                                prompt.version_string())
 
                             # stats
-                            stats[category.name][task.name][PROMT_VER][MODEL_VER][AnswerStatus.planned] += 1
+                            stats[category.name][task.name][PROMT_VER][
+                                MODEL_VER][AnswerStatus.planned] += 1
                             total_evaluations += 1
-
 
         # find potential issues
         for tsk, plist in track_task_prompts.items():
             if len(plist) == 0:
-                log.warning(f"No prompt for task {tsk.name}, Add prompt of type {tsk.type}")
+                log.warning(
+                    f"No prompt for task {tsk.name}, Add prompt of type {tsk.type}"
+                )
 
         # report
         report = defaultdict(list)
@@ -198,13 +220,25 @@ class Evaluator():
             for task, tdata in cdata.items():
                 for model, mdata in tdata.items():
                     for prompt, pdata in mdata.items():
-                        rows.append([cat, task, model, prompt, pdata[AnswerStatus.planned],
-                                     pdata[AnswerStatus.existing], pdata[AnswerStatus.planned] + pdata[AnswerStatus.existing]])
-                        report[model].append({"category": cat, "task": task,
-                                              "prompt": prompt,
-                                              "planned": pdata[AnswerStatus.planned],
-                                              "existing": pdata[AnswerStatus.existing]
-                                              })
+                        rows.append([
+                            cat, task, model, prompt,
+                            pdata[AnswerStatus.planned],
+                            pdata[AnswerStatus.existing],
+                            pdata[AnswerStatus.planned] +
+                            pdata[AnswerStatus.existing]
+                        ])
+                        report[model].append({
+                            "category":
+                            cat,
+                            "task":
+                            task,
+                            "prompt":
+                            prompt,
+                            "planned":
+                            pdata[AnswerStatus.planned],
+                            "existing":
+                            pdata[AnswerStatus.existing]
+                        })
 
         if not display_report:
             return report
@@ -214,12 +248,18 @@ class Evaluator():
         print(f"|-Prompts to evaluate: {len(prompts_list)}")
         print(f"|-Total evaluations to perform: {total_evaluations}")
         print('\n')
-        print(tabulate(rows, headers=["Category", "Task", "Prompt", "Model",
-                                      "Planned", "Existing", "Expected Total"]))
+        print(
+            tabulate(rows,
+                     headers=[
+                         "Category", "Task", "Prompt", "Model", "Planned",
+                         "Existing", "Expected Total"
+                     ]))
         return report
 
-    def execute(self, save_interval: int = 100,
-                use_tempfile: bool | None = None) -> Benchmark:
+    def execute(self,
+                save_interval: int = 100,
+                use_tempfile: bool | None = None,
+                num_threads: int | None = None) -> Benchmark:
         """Execute the evaluation plan"""
         num_models = len(self._tasks)  # dict[model_name, deque[EvalTask]]
         if not num_models:
@@ -228,8 +268,11 @@ class Evaluator():
         self.num_saved = 0
         display_progress = []
 
-        def _execute_model(model_name: str, etasks: deque[EvalTask], d_index: int):
-            print(f"exec model: {model_name}, prompts: {len(etasks)}, medias: {len(etasks[0].question.medias)}")
+        def _execute_model(model_name: str, etasks: deque[EvalTask],
+                           d_index: int):
+            print(
+                f"exec model: {model_name}, prompts: {len(etasks)}, medias: {len(etasks[0].question.medias)}"
+            )
             num_executed = 0
             prompts = []
             medias = []
@@ -241,24 +284,25 @@ class Evaluator():
                 mds = t.question.medias if t.question.medias else []
                 mds = mds if isinstance(mds, list) else [mds]
                 medias.append(mds)
-            log.debug(f"model: {model.name}, prompts: {len(prompts)}, medias: {len(medias)}")
+            log.debug(
+                f"model: {model.name}, prompts: {len(prompts)}, medias: {len(medias)}"
+            )
 
             score = 0.0  # live stats
             count = 0
             error = 0
             punt = 0
-            for index, answer in model.batch_generate_text(prompts=prompts, medias=medias):
-                assert (
-                    answer is not None
-                ), f"Answer generation failed for model {model_name}"
+            for index, answer in model.batch_generate_text(prompts=prompts,
+                                                           medias=medias):
+                assert (answer is not None
+                        ), f"Answer generation failed for model {model_name}"
                 log.debug(f"model:index: {model_name}, {index}")
                 log.debug(f"model:answer: {answer.answer}")
                 etask = etasks[index]
                 etask.error = answer.iserror
                 if etask.punt_detector:
-                    punt_score = etask.punt_detector.score(answer,
-                                                           etask.question,
-                                                           etask.task)
+                    punt_score = etask.punt_detector.score(
+                        answer, etask.question, etask.task)
                     log.debug(f"punt_score: {punt_score}")
                     if punt_score == 1.0:
                         etask.punted = True
@@ -279,25 +323,32 @@ class Evaluator():
                 # add answer to benchmark
                 # Only one thread at a time can write to the benchmark
                 with self._checkpoint_lock.write():
-                    bench_task = self.benchmark.get_task(etask.category.name,
-                                                         etask.task.name)
-                    bench_question: Question = bench_task.questions[etask.question.id]
+                    bench_task = self.benchmark.get_task(
+                        etask.category.name, etask.task.name)
+                    bench_question: Question = bench_task.questions[
+                        etask.question.id]
                     if prompt_ver not in bench_question.lm_answers:
                         bench_question.lm_answers[prompt_ver] = {}
-                    bench_question.lm_answers[prompt_ver][model_ver] = etask.lm_answer
-                    log.debug(f"Added answer to benchmark ({model_name}, {index}):{bench_question}")
+                    bench_question.lm_answers[prompt_ver][
+                        model_ver] = etask.lm_answer
+                    log.debug(
+                        f"Added answer to benchmark ({model_name}, {index}):{bench_question}"
+                    )
                     self.num_processed += 1
                     dp = display_progress[d_index]
                     dp["count"] = count
                     dp["error"] = error
                     dp["punt"] = punt
                     dp["score"] = score
-                    if (self.num_processed >= save_interval + self.num_saved) and self.save_path:
-                        self.benchmark.save(self.save_path, use_tempfile=use_tempfile)
+                    if (self.num_processed >= save_interval +
+                            self.num_saved) and self.save_path:
+                        self.benchmark.save(self.save_path,
+                                            use_tempfile=use_tempfile)
                         self.num_saved = self.num_processed
             return num_executed
-
-        with concurrent.futures.ThreadPoolExecutor(num_models) as executor:
+        if num_threads is None: 
+            num_threads = num_models
+        with concurrent.futures.ThreadPoolExecutor(num_threads) as executor:
             futures = []
             for model_name, etasks in self._tasks.items():
                 func = functools.partial(
@@ -307,10 +358,23 @@ class Evaluator():
                     d_index=len(display_progress),
                 )
                 display_progress.append({
-                    "pbar": tqdm(desc=f"Model {model_name}", total=len(etasks)),
-                    "total": len(etasks), "count": 0, "error": 0, "punt": 0,
-                    "score": 0.0, "shown": 0})
+                    "pbar":
+                    tqdm(desc=f"Model {model_name}", total=len(etasks)),
+                    "total":
+                    len(etasks),
+                    "count":
+                    0,
+                    "error":
+                    0,
+                    "punt":
+                    0,
+                    "score":
+                    0.0,
+                    "shown":
+                    0
+                })
                 futures.append(executor.submit(func))
+            random.shuffle(futures)  # randomize to spread the load among models
             done = False
             while not done:
                 done = True
@@ -352,14 +416,14 @@ class Evaluator():
         # return benchmark so people can manipulate it after evaluation
         return self.benchmark
 
-
     @staticmethod
     def prepare_task(etask: EvalTask) -> EvalTask:
         """Prepares the prompt and other data  for a given eval task."""
         if etask.instanciated_prompt:
             instanciated_prompt = etask.instanciated_prompt
         else:
-            instanciated_prompt = etask.prompt.render(etask.question, etask.task)
+            instanciated_prompt = etask.prompt.render(etask.question,
+                                                      etask.task)
             etask.instanciated_prompt = instanciated_prompt
 
         log.debug(f"prompt: {instanciated_prompt}")
@@ -369,8 +433,10 @@ class Evaluator():
             for media in etask.question.medias:
                 if not media.content:
                     if not utils.Path(media.original_path).exists():
-                            raise ValueError(f"media {media.original_path} not found")
-                    media.content = utils.Path(media.original_path).read_bytes()
+                        raise ValueError(
+                            f"media {media.original_path} not found")
+                    media.content = utils.Path(
+                        media.original_path).read_bytes()
 
         return etask
 
@@ -381,7 +447,8 @@ class Evaluator():
         if etask.instanciated_prompt:
             instanciated_prompt = etask.instanciated_prompt
         else:
-            instanciated_prompt = etask.prompt.render(etask.question, etask.task)
+            instanciated_prompt = etask.prompt.render(etask.question,
+                                                      etask.task)
             etask.instanciated_prompt = instanciated_prompt
 
         log.debug(f"prompt: {instanciated_prompt}")
@@ -391,20 +458,22 @@ class Evaluator():
             for media in etask.question.medias:
                 if not media.content:
                     if not utils.Path(media.original_path).exists():
-                            raise ValueError(f"media {media.original_path} not found")
-                    media.content = utils.Path(media.original_path).read_bytes()
+                        raise ValueError(
+                            f"media {media.original_path} not found")
+                    media.content = utils.Path(
+                        media.original_path).read_bytes()
 
         # generate model answer
-        model_answer: LMAnswer = etask.lm_model.generate_text(instanciated_prompt,
-                                                                medias=etask.question.medias)
+        model_answer: LMAnswer = etask.lm_model.generate_text(
+            instanciated_prompt, medias=etask.question.medias)
         log.debug(f"model:answer: {model_answer.answer}")
 
         etask.error = model_answer.iserror
 
         # punting detection
         if etask.punt_detector:
-            punt_score = etask.punt_detector.score(model_answer, etask.question,
-                                                    etask.task)
+            punt_score = etask.punt_detector.score(model_answer,
+                                                   etask.question, etask.task)
             log.debug(f"punt_score: {punt_score}")
             if punt_score == 1.0:
                 etask.punted = True
@@ -421,7 +490,8 @@ class Evaluator():
         assert etask.lm_answer is not None, "Cannot score an answer that has not been generated"
         assert not etask.lm_answer.ispunting, "Cannot score a punted answer"
 
-        score = etask.task.scorer.score(etask.lm_answer, etask.question, etask.task)
+        score = etask.task.scorer.score(etask.lm_answer, etask.question,
+                                        etask.task)
         etask.lm_answer.score = score
         etask.score = score
         log.debug(f"answer score: {score}")
@@ -429,6 +499,3 @@ class Evaluator():
             score = scorer.score(etask.lm_answer, etask.question, etask.task)
             etask.lm_answer.additional_scores[scorer.type] = score
         return etask
-
-
-
