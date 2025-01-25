@@ -64,7 +64,7 @@ class ContainAnswerLetterInsensitive(Scorer):
         ma = self._cleanup(model_answer.answer).lower()
         qa = self._cleanup(question.answer_letter).lower()
 
-        if qa and qa in ma[0]:
+        if qa and ma and qa in ma[0]:
             return 1.0
         else:
             return 0.0
