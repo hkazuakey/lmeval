@@ -21,7 +21,7 @@ from typing import TypeVar, Generic, Optional
 import concurrent.futures
 import functools
 import lmeval
-import random
+import threading
 import time
 
 from lmeval import utils
@@ -113,7 +113,7 @@ class Evaluator():
         self._tasks: dict[str, deque[EvalTask]] = defaultdict(deque)
 
         # lock for update shared values
-        self._checkpoint_lock = utils.ReadWriteLock()
+        self._checkpoint_lock = threading.Lock()
         self.num_processed = 0
         self.num_saved = 0
 
@@ -322,7 +322,7 @@ class Evaluator():
                 error += answer.iserror
                 # add answer to benchmark
                 # Only one thread at a time can write to the benchmark
-                with self._checkpoint_lock.write():
+                with self._checkpoint_lock:
                     bench_task = self.benchmark.get_task(
                         etask.category.name, etask.task.name)
                     bench_question: Question = bench_task.questions[
@@ -374,7 +374,6 @@ class Evaluator():
                     0
                 })
                 futures.append(executor.submit(func))
-            random.shuffle(futures)  # randomize to spread the load among models
             done = False
             while not done:
                 done = True
@@ -388,7 +387,7 @@ class Evaluator():
                     else:
                         done = False
 
-                    with self._checkpoint_lock.write():
+                    with self._checkpoint_lock:
                         dp = display_progress[i]
                         count = dp["count"]
                         shown = dp["shown"]
