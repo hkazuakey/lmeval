@@ -67,13 +67,15 @@ class MockModel(LMModel):
       answer = self._build_answer(request_response[prompt],
                                  generation_time=0.2,
                                  iserror=False,
-                                 error_reason="")
+                                 error_reason="", 
+                                 prompt=prompt)
     elif "default_response" in self.runtime_vars:
         default_response = self.runtime_vars["default_response"]
         answer = self._build_answer(default_response,
                                    generation_time=0.2,
                                    iserror=False,
-                                   error_reason="")
+                                   error_reason="",
+                                   prompt=prompt)
     else:
         answer = self._build_answer("", generation_time=0.2, iserror=True,
                                    error_reason="No matching request found")

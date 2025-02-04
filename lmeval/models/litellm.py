@@ -81,7 +81,7 @@ class LiteLLMModel(LMModel):
             batch_responses = [None for _ in prompts]
 
         for i, resp in enumerate(batch_responses):
-            answer = self._make_answer(resp)
+            answer = self._make_answer(resp, prompts[i])
             yield i, answer
 
     def generate_text(self, prompt: str,
@@ -102,7 +102,7 @@ class LiteLLMModel(LMModel):
             resp = None
             print("Can't get response from model:", e)
 
-        answer = self._make_answer(resp)
+        answer = self._make_answer(resp, prompt)
         return answer
 
     def _make_messages(self, prompt: str,
@@ -138,10 +138,11 @@ class LiteLLMModel(LMModel):
             # for model that don't support complex messages structure
             return [{"role": "user", "content": prompt}]
 
-    def _make_answer(self, resp: ModelResponse | CustomStreamWrapper | None) -> LMAnswer:
+    def _make_answer(self, resp: ModelResponse | CustomStreamWrapper | None,
+                      prompt: str="") -> LMAnswer:
         iserror = False
-        error_reason = ''
-        raw_response = ''
+        error_reason = ""
+        raw_response = ""
         cost = total_tokens = prompt_tokens = completion_tokens = 0
         total_time = 0
 
@@ -190,7 +191,8 @@ class LiteLLMModel(LMModel):
                                     total_tokens=total_tokens,
                                     completion_tokens=completion_tokens,
                                     prompt_tokens=prompt_tokens,
-                                    isunsafe=self.isunsafe)
+                                    isunsafe=self.isunsafe,
+                                    prompt=prompt)
         return answer
 
 

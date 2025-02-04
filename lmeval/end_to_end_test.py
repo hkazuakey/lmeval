@@ -25,7 +25,7 @@ from lmeval.prompts import QuestionOnlyPrompt, MultiChoicesPrompt, TrueOrFalseAn
 from lmeval.prompts import MultiChoicesPrompt, MultiChoicesMultiAnswersPrompt
 from lmeval import Question, Task, TaskType, ScorerType, Evaluator
 from lmeval.evaluator import EvalTask
-from .fixtures import gemini_mock, gemini_pro15_mock, get_country_boolean, get_country_multi_choice, get_country_generation
+from lmeval.fixtures import gemini_mock, gemini_pro15_mock, get_country_boolean, get_country_multi_choice, get_country_generation
 
 
 def _find_letter(answer: str, prompt: str):
@@ -161,6 +161,7 @@ def test_e2e_boolean(gemini_mock):
 
         etask = Evaluator.generate_answer(etask)
         assert data['answer'].lower() in etask.lm_answer.answer.lower()
+        assert rendered_question == etask.lm_answer.text_prompt
         assert etask.lm_answer.steps[0].execution_time > 0
 
 
@@ -200,7 +201,7 @@ def test_e2e_multi(gemini_mock):
 
         print('lm_amswer:', etask.lm_answer.answer)
         assert etask.lm_answer.score == 1.0
-
+        assert rendered_question == etask.lm_answer.text_prompt
 
 def test_e2e_multi_answers():
     "We need the real Gemini for this one"
@@ -279,3 +280,4 @@ def test_e2e_text_generation(gemini_mock):
 
         print('lm_amswer:', etask.lm_answer.answer)
         assert etask.lm_answer.score == 1.0
+        assert rendered_question == etask.lm_answer.text_prompt

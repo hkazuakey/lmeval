@@ -52,7 +52,7 @@ class LMModel(CustomModel):
                        iserror: bool = False, error_reason: str = '',
                        total_tokens: int = 0, prompt_tokens: int = 0,
                        completion_tokens: int = 0, isunsafe: bool = False,
-                       cost: float = 0.0) -> LMAnswer:
+                       cost: float = 0.0, prompt:str='') -> LMAnswer:
         ts = int(time())
 
         # add generation as step
@@ -82,7 +82,8 @@ class LMModel(CustomModel):
                           iserror=iserror,
                           error_reason=error_reason,
                           steps=steps,
-                          model=self)
+                          model=self,
+                          text_prompt=prompt)
         return answer
 
     def __str__(self) -> str:
@@ -165,6 +166,9 @@ class LMAnswer(CustomModel):
 
     # model used
     model: LMModel
+
+    # record the actual text prompt used
+    text_prompt: str = Field(default='')
 
     def __str__(self) -> str:
         return str(f"{self.model.name}: {self.answer}")
