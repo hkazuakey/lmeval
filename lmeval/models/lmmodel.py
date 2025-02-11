@@ -20,7 +20,7 @@ from typing import Any, Dict, Optional, Tuple
 from pydantic import Field
 import base64
 from ..custom_model import CustomModel
-from ..enums import Modality, ScorerType, StepType, MultiShotStrategy
+from ..enums import Modality, ScorerType, StepType, MultiShotStrategy, TaskType
 from ..media import Media
 
 
@@ -51,6 +51,10 @@ class LMModel(CustomModel):
                        medias: Optional[list[Media]] = None,
                        temperature: float = 0.0,
                        completions: int = 1) -> LMAnswer:
+        raise NotImplementedError
+
+    def complete(self, messages: list[dict], temperature: float = 0.0,
+                 completions: int = 1) -> LMAnswer:
         raise NotImplementedError
 
     def _build_answer(self, text: str, generation_time: float,
@@ -119,6 +123,16 @@ class LMModel(CustomModel):
     def _img2base64(self, raw_img: bytes) -> str:
         "convert an image to base64 to send to the model"
         return base64.b64encode(raw_img).decode('utf-8')
+
+    def batch_execute(self, prompts: list[str|list[dict]], medias: list[list[Media]],
+                      tasks_types: list[TaskType], temperature: float = 0.0,
+                      completions: int = 1) -> Generator[Tuple[int, LMAnswer], None, None]:
+        """ Execute a batch of prompts in parallel."""
+        for i, (prompt, t_type) in enumerate(zip(prompts, tasks_types)):
+            if t_type == TaskType.completion.value:
+                yield i, self.complete(prompt, temperature, completions)
+            else:
+                yield i, self.generate_text(prompt, medias[i], temperature, completions)
 
     def batch_generate_text(
             self,

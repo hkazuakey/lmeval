@@ -14,6 +14,7 @@
 
 from collections.abc import Generator
 import time
+import traceback
 from typing import Optional, Tuple
 from litellm import completion, completion_cost, batch_completion
 from litellm import ModelResponse, CustomStreamWrapper
@@ -23,6 +24,13 @@ from .lmmodel import LMModel
 from .lmmodel import LMAnswer
 from ..media import Media
 from ..logger import log
+
+
+def update_generation_kwargs(generation_kwargs: dict, update: dict) -> dict:
+    for key, value in update.items():
+        if key not in generation_kwargs:
+            generation_kwargs[key] = value
+    return generation_kwargs
 
 
 class LiteLLMModel(LMModel):
@@ -115,6 +123,35 @@ class LiteLLMModel(LMModel):
             print("Can't get response from model:", e)
 
         answer = self._make_answer(resp, prompt)
+        return answer
+
+    def complete(
+        self,
+        messages: list[dict],
+        temperature: float = 0.0,
+        completions: int = 1,
+        max_tokens: int = 4096,
+        **generation_kwargs,
+    ) -> LMAnswer:
+        # FIXME: finish multi-completion support
+
+        try:
+            arguments = dict(
+                model=self.runtime_vars["litellm_version_string"],
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                completions=completions,
+                **generation_kwargs,
+            )
+            resp = self._completion(**arguments)
+
+        except Exception as e:
+            resp = None
+            print("Can't get response from model:", e)
+            print(traceback.format_exc())
+
+        answer = self._make_answer(resp)
         return answer
 
     def _make_messages(
@@ -233,9 +270,16 @@ class LiteLLMModel(LMModel):
                           messages_batch: list[dict],
                           temperature: float = 0.0,
                           max_tokens: int = 4096,
-                          completions: int = 1) -> list[ModelResponse]:
+                          completions: int = 1,
+                          **generation_kwargs) -> list[ModelResponse]:
 
         #! we need to isolate the batch completion to allow various implementation to pass additonals parameters
+        if "generation_kwargs" in self.runtime_vars:
+            # do not override the generation_kwargs passed as parameter
+            generation_kwargs = update_generation_kwargs(
+                generation_kwargs, self.runtime_vars["generation_kwargs"]
+            )
+
         batch_responses = batch_completion(
             model=model,
             messages=messages_batch,
@@ -245,7 +289,8 @@ class LiteLLMModel(LMModel):
             api_key=self.runtime_vars.get('api_key'),
             base_url=self.runtime_vars.get('base_url'),
             max_workers=self.runtime_vars.get('max_workers'),
-            extra_headers=self._make_headers())
+            extra_headers=self._make_headers(),
+            **generation_kwargs)
         return batch_responses
 
     def _completion(self,
@@ -253,7 +298,14 @@ class LiteLLMModel(LMModel):
                     messages: list[dict],
                     temperature: float = 0.0,
                     max_tokens: int = 4096,
-                    completions: int = 1) -> ModelResponse:
+                    completions: int = 1,
+                    **generation_kwargs) -> ModelResponse:
+        if "generation_kwargs" in self.runtime_vars:
+            # do not override the generation_kwargs passed as parameter
+            generation_kwargs = update_generation_kwargs(
+                generation_kwargs, self.runtime_vars["generation_kwargs"]
+            )
+
         #! we need to isolate the batch completion to allow various implementation to pass additonals parameters
         resp = completion(model=model,
                           messages=messages,
@@ -262,7 +314,8 @@ class LiteLLMModel(LMModel):
                           n=completions,
                           api_key=self.runtime_vars.get('api_key'),
                           base_url=self.runtime_vars.get('base_url'),
-                          extra_headers=self._make_headers())
+                          extra_headers=self._make_headers(),
+                          **generation_kwargs)
         return resp
 
     def _make_headers(self) -> dict[str, str]:

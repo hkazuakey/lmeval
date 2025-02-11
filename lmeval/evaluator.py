@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from enum import Enum
+import json
 from pydantic import Field, BaseModel
 from tabulate import tabulate
 from collections import defaultdict, deque
@@ -34,7 +35,7 @@ from lmeval.benchmark import Benchmark, Category, load_benchmark
 from lmeval.prompts import Prompt
 from lmeval.custom_model import CustomModel
 from lmeval.callback import Callback
-from lmeval.enums import Modality
+from lmeval.enums import Modality, TaskType
 
 # generic type
 P = TypeVar('P', bound='Prompt')
@@ -66,6 +67,10 @@ class EvalTask(CustomModel): #  Generic[M, P]):
 
     def __str__(self) -> str:
         return f"{self.lm_model.version_string}:{self.prompt.name} {self.category.name} / {self.task.name} / {self.question.id}"
+
+
+class CompletionEvalTask(EvalTask):
+    messages: list[dict]
 
 
 class Evaluator():
@@ -170,16 +175,29 @@ class Evaluator():
                                 continue
 
                             # create evaluation task and queue it
-                            evaltask = EvalTask(
-                                benchmark_name=self.benchmark.name,
-                                question=question,
-                                category=category,
-                                task=task,
-                                lm_model=model,
-                                lm_answer=None,
-                                prompt=prompt,
-                                instanciated_prompt=instanciated_prompt,
-                                punt_detector=punt_detector)
+                            if task.type == TaskType.completion.value:
+                                evaltask = CompletionEvalTask(
+                                    benchmark_name=self.benchmark.name,
+                                    question=question,
+                                    category=category,
+                                    task=task,
+                                    lm_model=model,
+                                    lm_answer=None,
+                                    prompt=prompt,
+                                    messages=question.messages,
+                                    punt_detector=punt_detector,
+                                )
+                            else:
+                                evaltask = EvalTask(
+                                    benchmark_name=self.benchmark.name,
+                                    question=question,
+                                    category=category,
+                                    task=task,
+                                    lm_model=model,
+                                    lm_answer=None,
+                                    prompt=prompt,
+                                    instanciated_prompt=instanciated_prompt,
+                                    punt_detector=punt_detector)
 
                             # allows to cap the number of evaluations per task
                             if stats[category.name][
@@ -274,7 +292,10 @@ class Evaluator():
             model = etasks[0].lm_model
             for etask in etasks:
                 t = self.prepare_task(etask)
-                prompts.append(t.instanciated_prompt)
+                if etask.task.type == TaskType.completion.value:
+                    prompts.append(t.messages)
+                else:
+                    prompts.append(t.instanciated_prompt)
                 # normalize medias
                 mds = t.question.medias if t.question.medias else []
                 mds = mds if isinstance(mds, list) else [mds]
@@ -287,8 +308,10 @@ class Evaluator():
             count = 0
             error = 0
             punt = 0
-            for index, answer in model.batch_generate_text(prompts=prompts,
-                                                           medias=medias):
+            for index, answer in model.batch_execute(prompts=prompts,
+                                                     medias=medias,
+                                                     tasks_types=[etask.task.type for etask in etasks]):
+
                 assert answer is not None, f"Answer generation failed for model {model_name}"
                 log.debug(f"model:index: {model_name}, {index}")
                 log.debug(f"model:answer: {answer.answer}")
@@ -406,7 +429,18 @@ class Evaluator():
     @staticmethod
     def prepare_task(etask: EvalTask) -> EvalTask:
         """Prepares the prompt and other data for a given eval task."""
-        if etask.instanciated_prompt:
+        if isinstance(etask, CompletionEvalTask):
+            # Prepare messages for CompletionEvalTask
+            if not etask.messages or len(etask.messages) == 0:
+                etask.messages = [
+                    {
+                        "role": "user",
+                        "content": etask.prompt.render(etask.question, etask.task),
+                    }
+                ]
+            instanciated_prompt = etask.messages
+            etask.instanciated_prompt = json.dumps(instanciated_prompt)
+        elif etask.instanciated_prompt:
             instanciated_prompt = etask.instanciated_prompt
         else:
             instanciated_prompt = etask.prompt.render(etask.question,
@@ -431,7 +465,18 @@ class Evaluator():
     def generate_answer(etask: EvalTask) -> EvalTask:
         """Generate an answer for a given eval task"""
 
-        if etask.instanciated_prompt:
+        if isinstance(etask, CompletionEvalTask):
+            # Prepare messages for CompletionEvalTask
+            if not etask.messages or len(etask.messages) == 0:
+                etask.messages = [
+                    {
+                        "role": "user",
+                        "content": etask.prompt.render(etask.question, etask.task),
+                    }
+                ]
+            instanciated_prompt = etask.messages
+            etask.instanciated_prompt = json.dumps(instanciated_prompt)
+        elif etask.instanciated_prompt:
             instanciated_prompt = etask.instanciated_prompt
         else:
             instanciated_prompt = etask.prompt.render(etask.question,
@@ -451,8 +496,12 @@ class Evaluator():
                         media.original_path).read_bytes()
 
         # generate model answer
-        model_answer: LMAnswer = etask.lm_model.generate_text(
-            instanciated_prompt, medias=etask.question.medias)
+        if isinstance(etask, CompletionEvalTask):
+            model_answer: LMAnswer = etask.lm_model.complete(etask.messages)
+        else:
+            model_answer: LMAnswer = etask.lm_model.generate_text(
+                instanciated_prompt, medias=etask.question.medias)
+
         log.debug(f"model:answer: {model_answer.answer}")
 
         etask.error = model_answer.iserror

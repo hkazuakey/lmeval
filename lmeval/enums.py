@@ -106,6 +106,7 @@ class TaskType(Enum):
   multiple_choices = "multiple_choices"
   multiple_choices_multiple_answers = "multiple_choices_multiple_answers"
   text_generation = "text_generation"
+  completion = "completion"
   image_generation = "image_generation"
   python_generation = "python_generation"
 

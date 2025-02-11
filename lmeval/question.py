@@ -36,11 +36,11 @@ class QuestionSource(CustomModel):
 class Question(CustomModel):
     # we need it for (de)serialization - automated added by Task.add()
     id: int = Field(default=-1)
-    question: str
+    question: str | None = Field(default=None)
     language: str = Field(default="en")
 
     # answer
-    answer: str
+    answer: str | None = Field(default=None)
     # additional answers e.g. for multiple choice questions
     additional_answers: List[str] = Field(default_factory=list)
 
@@ -66,6 +66,8 @@ class Question(CustomModel):
     source: QuestionSource = Field(default=None)
     medias: List[Media] = Field(default_factory=list)
 
+    # messages to be sent to the llm model
+    messages: List[dict] = Field(default_factory=list)
     # metadata for the question and for the evaluation
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
