@@ -15,7 +15,7 @@
 from pydantic import Field
 from pathlib import Path
 from hashlib import blake2b
-from typing import List, Dict
+from typing import Any, List, Dict
 
 from collections import defaultdict
 from .custom_model import CustomModel
@@ -65,6 +65,9 @@ class Question(CustomModel):
     # question source and extra media
     source: QuestionSource = Field(default=None)
     medias: List[Media] = Field(default_factory=list)
+
+    # metadata for the question and for the evaluation
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
     # can't use model_ : it is reserved for pydantic
     # lm_answers[prompt_version][model_version, LMAnswer]

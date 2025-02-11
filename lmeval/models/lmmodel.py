@@ -189,6 +189,7 @@ class LMAnswer(CustomModel):
     # scorer
     score: float = Field(default=0.0)
     additional_scores: Dict[ScorerType, float] = Field(default={})
+    score_raw_data: Dict[str, Any] = Field(default={})
 
     # executions steps
     steps: list[Step] = Field(default=[])
