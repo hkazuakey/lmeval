@@ -20,7 +20,7 @@ from .media import Media
 from .models import LMModel, LMAnswer
 from .enums import TaskType, TaskLevel, FileType, Modality, ScorerType
 from .evaluator import Evaluator
-from .scorers import get_scorer, list_scorers
+from .scorers import get_scorer, list_scorers, add_scorer, update_scorer
 from .logger import set_log_level
 
 __all__ = [
@@ -53,6 +53,8 @@ __all__ = [
     # scorers
     "get_scorer",
     "list_scorers",
+    "add_scorer",
+    "update_scorer",
     "ScorerType",
 
     # enums
