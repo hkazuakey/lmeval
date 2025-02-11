@@ -164,8 +164,9 @@ class Evaluator():
                             # check if the answer already exists
                             if PROMT_VER in question.lm_answers and MODEL_VER in question.lm_answers[
                                     PROMT_VER]:
+                                # Already existing results
                                 stats[category.name][task.name][PROMT_VER][
-                                    MODEL_VER][AnswerStatus.planned] += 1
+                                    MODEL_VER][AnswerStatus.existing] += 1
                                 continue
 
                             # create evaluation task and queue it
@@ -476,11 +477,17 @@ class Evaluator():
         assert etask.lm_answer is not None, "Cannot score an answer that has not been generated"
         assert not etask.lm_answer.ispunting, "Cannot score a punted answer"
 
-        score = etask.task.scorer.score(etask.lm_answer, etask.question,
-                                        etask.task)
-        etask.lm_answer.score = score
-        etask.score = score
-        log.debug(f"answer score: {score}")
+        try:
+            score = etask.task.scorer.score(etask.lm_answer, etask.question,
+                                            etask.task)
+            etask.lm_answer.score = score
+            etask.score = score
+            log.debug(f"answer score: {score}")
+        except Exception as e:
+            log.error(f"error scoring answer: {e}")
+            etask.lm_answer.iserror = True
+            etask.error = True
+
         for scorer in etask.task.additional_scorers:
             score = scorer.score(etask.lm_answer, etask.question, etask.task)
             etask.lm_answer.additional_scores[scorer.type] = score
