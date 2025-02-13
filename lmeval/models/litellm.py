@@ -153,7 +153,8 @@ class LiteLLMModel(LMModel):
             return [{"role": "user", "content": prompt}]
 
     def _make_answer(self,
-                     resp: ModelResponse | CustomStreamWrapper | None,
+                     resp: ModelResponse | CustomStreamWrapper | Exception
+                     | None,
                      prompt: str = "") -> LMAnswer:
         iserror = False
         error_reason = ""
@@ -203,6 +204,18 @@ class LiteLLMModel(LMModel):
                 iserror = True
                 error_reason = f'{resp}'
                 raw_response = ''
+        elif isinstance(resp, Exception):
+            iserror = True
+            error_reason = repr(resp)
+            raw_response = ''
+        elif resp is None:
+            iserror = True
+            error_reason = "Batch completion failed."
+            raw_response = ''
+        else:
+            iserror = True
+            error_reason = "Not implemented"
+            raw_response = ''
 
         answer = self._build_answer(text=raw_response,
                                     generation_time=total_time,
