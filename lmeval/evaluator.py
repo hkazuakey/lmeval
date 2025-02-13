@@ -258,8 +258,7 @@ class Evaluator():
 
     def execute(self,
                 save_interval: int = 100,
-                use_tempfile: bool | None = None,
-                num_threads: int | None = None) -> Benchmark:
+                use_tempfile: bool | None = None) -> Benchmark:
         """Execute the evaluation plan"""
         num_models = len(self._tasks)  # dict[model_name, deque[EvalTask]]
         if not num_models:
@@ -346,9 +345,7 @@ class Evaluator():
                                             use_tempfile=use_tempfile)
                         self.num_saved = self.num_processed
             return num_executed
-        if num_threads is None: 
-            num_threads = num_models
-        with concurrent.futures.ThreadPoolExecutor(num_threads) as executor:
+        with concurrent.futures.ThreadPoolExecutor(num_models) as executor:
             futures = []
             for model_name, etasks in self._tasks.items():
                 func = functools.partial(
@@ -417,7 +414,7 @@ class Evaluator():
 
     @staticmethod
     def prepare_task(etask: EvalTask) -> EvalTask:
-        """Prepares the prompt and other data  for a given eval task."""
+        """Prepares the prompt and other data for a given eval task."""
         if etask.instanciated_prompt:
             instanciated_prompt = etask.instanciated_prompt
         else:

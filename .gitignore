@@ -9,7 +9,7 @@ __pycache__/
 .ipynb_checkpoints
 backup/
 scratchpad.ipynb
-venv/
+.venv/
 tmp/
 tmp.py
 env/
@@ -25,9 +25,9 @@ dist/*
 .DS_Store
 *_Store
 experiments_list.txt
-
 */models-data/*
-
 .vscode
 private/
+uv.lock
+.python-version
 
