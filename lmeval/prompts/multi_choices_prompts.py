@@ -50,6 +50,7 @@ class MultiChoicesMultiAnswersPrompt(Prompt):
             super().__init__(name=name, description=description,
                             task_type=task_type, template=template, url=url,
                             version=version)
+
     def render(self, question: Question, task: Task) -> str:
         "Render prompt for a given question and task"
 
@@ -65,6 +66,7 @@ class MultiChoicesMultiAnswersPrompt(Prompt):
             question.multi_choices = question.prompt_cache[version]['multi_choices']
             question.letters = question.prompt_cache[version]['letters']
             question.answer_letter = question.prompt_cache[version]['answer_letter']
+            question.letter_mapping = question.prompt_cache[version]['letter_mapping']
         else:
             possible_answers = [question.answer] + question.additional_answers +  question.choices
             random.shuffle(possible_answers)
@@ -72,12 +74,14 @@ class MultiChoicesMultiAnswersPrompt(Prompt):
             # Construct the list of possible answers
             choices_list = []
             letters_list = []
+            letter_mapping = {}
             correct_letters = []
             for idx, answer in enumerate(possible_answers):
                 letter = ascii_uppercase[idx]
                 # don't put space between letter and answer it decrease accuracy...
                 choices_list.append(f"{letter}:{answer}")
                 letters_list.append(letter)
+                letter_mapping[letter] = answer
 
                 # mark the answer and additional answers as correct
                 if answer == question.answer:
@@ -99,7 +103,8 @@ class MultiChoicesMultiAnswersPrompt(Prompt):
             question.prompt_cache[version] = {
                 'multi_choices': multi_choices,
                 'letters': letters,
-                'answer_letter': question.answer_letter
+                'answer_letter': question.answer_letter,
+                'letter_mapping': letter_mapping
             }
 
         # render full template
@@ -153,6 +158,7 @@ class MultiChoicesPrompt(Prompt):
             question.multi_choices = question.prompt_cache[version]['multi_choices']
             question.letters = question.prompt_cache[version]['letters']
             question.answer_letter = question.prompt_cache[version]['answer_letter']
+            question.letter_mapping = question.prompt_cache[version]['letter_mappings']
         else:
             possible_answers = [question.answer] + question.choices
             random.shuffle(possible_answers)
@@ -160,12 +166,13 @@ class MultiChoicesPrompt(Prompt):
             # Construct the list of possible answers
             choices_list = []
             letters_list = []
+            letter_mapping = {}
             for idx, answer in enumerate(possible_answers):
                 letter = ascii_uppercase[idx]
                 # don't put space between letter and answer it decrease accuracy...
                 choices_list.append(f"{letter}:{answer}")
                 letters_list.append(letter)
-
+                letter_mapping[letter] = answer
                 if answer == question.answer:
                     question.answer_letter = letter
 
@@ -181,7 +188,8 @@ class MultiChoicesPrompt(Prompt):
             question.prompt_cache[version] = {
                 'multi_choices': multi_choices,
                 'letters': letters,
-                'answer_letter': question.answer_letter
+                'answer_letter': question.answer_letter,
+                'letter_mapping': letter_mapping
             }
 
         # render full template

@@ -51,6 +51,9 @@ class Question(CustomModel):
     answer_letter: str = Field(default="")
     letters: str = Field(default="")
     multi_choices: str = Field(default="")
+    letter_mapping: dict = Field(default_factory=dict,
+                                 description="Keep track of which letter is associated with which answer")
+
 
     # cache template rendering keyed by prompt version to ensure consistency
     # accross model evaluations.
