@@ -35,7 +35,7 @@ def _find_letter(answer: str, prompt: str):
   return match.group(1)
 
 
-def  test_e2e_benchmarking(gemini_mock, gemini_pro15_mock):
+def test_e2e_benchmarking(gemini_mock, gemini_pro15_mock):
     NUM_QUESTIONS = 2  # per task
 
     request_response = {}  # prompt and answers exptected
@@ -53,10 +53,10 @@ def  test_e2e_benchmarking(gemini_mock, gemini_pro15_mock):
     for idx in range(NUM_QUESTIONS):
         # random capital question
         data = get_country_boolean()
-        question = Question(id=idx, question=data['question'], answer=data['answer'])
+        question = Question(question=data['question'], answer=data['answer'])
         rendered_question = TrueOrFalseAnswerPrompt().render(question, task)
         request_response[rendered_question] = data['answer']
-        task.questions.append(question)
+        task.add_question(question)
     benchmark.categories[0].tasks.append(task)
 
     # adding a 2nd task with generation text to check heterogenous tasks support
@@ -64,10 +64,15 @@ def  test_e2e_benchmarking(gemini_mock, gemini_pro15_mock):
     for idx in range(NUM_QUESTIONS):
         # random capital question
         data = get_country_generation()
-        question = Question(id=idx, question=data['question'], answer=data['answer'])
+        question = Question(question=data['question'], answer=data['answer'])
         rendered_question = QuestionOnlyPrompt().render(question, task2)
         request_response[rendered_question] = data['answer']
-        task2.questions.append(question)
+        task2.add_question(question)
+
+        # question id is assigned by add_question so must be after
+        assert isinstance(question.id, int) and question.id >= 0
+
+
     benchmark.categories[0].tasks.append(task2)
 
     for category in benchmark.categories:
@@ -164,8 +169,6 @@ def test_e2e_boolean(gemini_mock):
         assert rendered_question == etask.lm_answer.text_prompt
         assert etask.lm_answer.steps[0].execution_time > 0
 
-
-
 def test_e2e_multi(gemini_mock):
     NUM_QUESTIONS = 5
     category = Category(name='geo', description='Geography questions')
@@ -184,13 +187,20 @@ def test_e2e_multi(gemini_mock):
         assert data['question'] in rendered_question
         for choice in data['choices']:
             assert choice in rendered_question
+        for letter, answer in question.letter_mapping.items():
+            assert f"{letter}:{answer}" in rendered_question
 
         print('question:\n',  question)
         print('rendered_template:\n', rendered_question)
-        request_response[rendered_question] = _find_letter(
-            data['answer'], rendered_question
-        )
+
+        # extract the correct answer for the mock
+        letter = _find_letter(data['answer'], rendered_question)
+        request_response[rendered_question] = letter
         gemini_mock.set_request_response(request_response)
+
+        # double check that it match the letter mapping
+        assert letter in question.letter_mapping
+        assert question.letter_mapping[letter] == data['answer']
 
         # check evaluator works correctly
         etask = EvalTask(category=category, task=task, question=question, lm_model=gemini_mock,
@@ -225,10 +235,15 @@ def test_e2e_multi_answers():
       # check prompt rendering
     rendered_question = prompt.render(question, task)
     assert question.question in rendered_question
+    assert question.answer in rendered_question
+    assert question.answer in question.letter_mapping.values()
     for choice in question.choices:
         assert choice in rendered_question
+        assert choice in question.letter_mapping.values()
+
     for answer in question.additional_answers:
         assert answer in rendered_question
+        assert answer in question.letter_mapping.values()
 
     # check evaluator works correctly on a real model
     etask = EvalTask(category=category, task=task, question=question,

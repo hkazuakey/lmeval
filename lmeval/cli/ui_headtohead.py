@@ -241,8 +241,8 @@ def h2h_create_question_table(benchmark_data, model1, model2):
         style_cell_conditional=[
             {
                 'if': {'column_id': 'Question'},
-                'width': '80%',      # Question column takes 50% of width
-                'minWidth': '400px'  # Minimum width for question column
+                'width': '80%',
+                'minWidth': '400px'
             },
             {
                 'if': {'column_id': 'M1 Score'},

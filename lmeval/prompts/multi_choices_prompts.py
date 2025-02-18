@@ -98,6 +98,7 @@ class MultiChoicesMultiAnswersPrompt(Prompt):
             # assign to the current question
             question.multi_choices = multi_choices
             question.letters = letters
+            question.letter_mapping = letter_mapping
 
             # store assignements for reuse accross models to have the exact same question
             question.prompt_cache[version] = {
@@ -158,7 +159,7 @@ class MultiChoicesPrompt(Prompt):
             question.multi_choices = question.prompt_cache[version]['multi_choices']
             question.letters = question.prompt_cache[version]['letters']
             question.answer_letter = question.prompt_cache[version]['answer_letter']
-            question.letter_mapping = question.prompt_cache[version]['letter_mappings']
+            question.letter_mapping = question.prompt_cache[version]['letter_mapping']
         else:
             possible_answers = [question.answer] + question.choices
             random.shuffle(possible_answers)
@@ -183,6 +184,7 @@ class MultiChoicesPrompt(Prompt):
             # assign to the current question
             question.multi_choices = multi_choices
             question.letters = letters
+            question.letter_mapping = letter_mapping
 
             # store assignements for reuse accross models to have the exact same question
             question.prompt_cache[version] = {
