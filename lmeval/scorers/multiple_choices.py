@@ -27,15 +27,16 @@ class ContainAnswerLettersInsensitive(Scorer):
     def _score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
         assert question.answer_letter is not None, "Answer letter is not provided - this is scorer can only be used with Multiple Choice question Prompts."
 
+        # track mapping for later display
+        model_answer.additional_data = question.letter_mapping
+
         qa = self._cleanup(question.answer_letter).lower().split(',')
         qa_len = len(qa)
         correct = 0
 
-
         ma = self._cleanup(model_answer.answer).lower() # don't split this one
         ma = ma.replace(' ', '').split(',') # a,b,c -> [a, b, c]
         ma_len = len(ma)
-
 
         # print(f"model answer: {ma}")
         # print(f"question answer: {qa}")
@@ -61,6 +62,10 @@ class ContainAnswerLetterInsensitive(Scorer):
 
     def _score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
         assert question.answer_letter is not None, "Answer letter is not provided - this is scorer can only be used with Multiple Choice question Prompts."
+
+        # track mapping for later display
+        model_answer.additional_data = question.letter_mapping
+
         ma = self._cleanup(model_answer.answer).lower()
         qa = self._cleanup(question.answer_letter).lower()
 
@@ -68,5 +73,3 @@ class ContainAnswerLetterInsensitive(Scorer):
             return 1.0
         else:
             return 0.0
-
-

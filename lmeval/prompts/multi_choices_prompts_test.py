@@ -17,6 +17,7 @@ from lmeval.prompts import MultiChoicesPrompt, MultiChoicesMultiAnswersPrompt
 from lmeval import Question, Task, TaskType
 from lmeval import get_scorer, ScorerType
 
+
 def test_multi_choices_multi_answers():
     prompt = MultiChoicesMultiAnswersPrompt()
     question_text = "What is true about Paris"
@@ -52,6 +53,11 @@ def test_multi_choices_multi_answers():
     for additional_answer in question.additional_answers:
         assert additional_answer in rendered_prompt
 
+    # check the mapping from letter to answer exist
+    for letter, answer in question.letter_mapping.items():
+        assert f"{letter}:{answer}" in rendered_prompt
+
+
 
 def test_multi_choices():
     prompt = MultiChoicesPrompt()
@@ -74,7 +80,8 @@ def test_multi_choices():
 
     # check that the answer letter is tied to the correct answer
     assert f"{question.answer_letter}:{question.answer}" in rendered_prompt
-
+    for letter, answer in question.letter_mapping.items():
+        assert f"{letter}:{answer}" in rendered_prompt
 
 def test_repeated_used_multi_choices():
     prompt = MultiChoicesPrompt()

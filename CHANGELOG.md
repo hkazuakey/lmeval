@@ -1,4 +1,18 @@
 # Changelog
+## [0.11.0] - 2025-02-15
+
+### Added
+
+- Evalboard UI to compare models across benchmarks
+- Tracking the mapping between letter and answer for multiple choices questions
+to make analysis easier.
+
+### Fixed
+
+-  questions ids might not have unique ids when exported in `to_records()` and `to_dataframe()`
+- `benchmark_list` only returned the 1st dataset
+
+
 ## [0.10.0] - 2025-01-23
 
 ### Fixed
@@ -166,8 +180,3 @@
 - Benchmark format to support multi-prompt
 - Summary to report prompts
 - Removed auto import to allow ondemand model API support
-
-
-
-
-Using: https://keepachangelog.com/en/1.1.0/

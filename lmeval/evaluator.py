@@ -269,9 +269,7 @@ class Evaluator():
 
         def _execute_model(model_name: str, etasks: deque[EvalTask],
                            d_index: int):
-            print(
-                f"exec model: {model_name}, prompts: {len(etasks)}, medias: {len(etasks[0].question.medias)}"
-            )
+            print(f"exec model: {model_name}, prompts: {len(etasks)}, medias: {len(etasks[0].question.medias)}")
             num_executed = 0
             prompts = []
             medias = []
@@ -283,9 +281,7 @@ class Evaluator():
                 mds = t.question.medias if t.question.medias else []
                 mds = mds if isinstance(mds, list) else [mds]
                 medias.append(mds)
-            log.debug(
-                f"model: {model.name}, prompts: {len(prompts)}, medias: {len(medias)}"
-            )
+            log.debug(f"model: {model.name}, prompts: {len(prompts)}, medias: {len(medias)}")
 
             score = 0.0  # live stats
             count = 0
@@ -293,16 +289,18 @@ class Evaluator():
             punt = 0
             for index, answer in model.batch_generate_text(prompts=prompts,
                                                            medias=medias):
-                assert (answer is not None
-                        ), f"Answer generation failed for model {model_name}"
+                assert answer is not None, f"Answer generation failed for model {model_name}"
                 log.debug(f"model:index: {model_name}, {index}")
                 log.debug(f"model:answer: {answer.answer}")
                 etask = etasks[index]
                 etask.error = answer.iserror
                 if etask.punt_detector:
-                    punt_score = etask.punt_detector.score(
-                        answer, etask.question, etask.task)
+                    punt_score = etask.punt_detector.score(answer,
+                                                           etask.question,
+                                                           etask.task)
                     log.debug(f"punt_score: {punt_score}")
+
+                    # model is punting
                     if punt_score == 1.0:
                         etask.punted = True
                         answer.ispunting = True
@@ -310,6 +308,7 @@ class Evaluator():
                         answer.answer = ""
                         log.debug(f"punting detected: {answer.punting_reason}")
                         punt += 1
+
                 etask.lm_answer = answer
                 if not etask.lm_answer.ispunting:
                     self.score_answer(etask)
@@ -322,17 +321,16 @@ class Evaluator():
                 # add answer to benchmark
                 # Only one thread at a time can write to the benchmark
                 with self._checkpoint_lock:
-                    bench_task = self.benchmark.get_task(
-                        etask.category.name, etask.task.name)
-                    bench_question: Question = bench_task.questions[
-                        etask.question.id]
+                    bench_task = self.benchmark.get_task(etask.category.name,
+                                                         etask.task.name)
+                    bench_question: Question = bench_task.questions[etask.question.id]
+
                     if prompt_ver not in bench_question.lm_answers:
                         bench_question.lm_answers[prompt_ver] = {}
-                    bench_question.lm_answers[prompt_ver][
-                        model_ver] = etask.lm_answer
-                    log.debug(
-                        f"Added answer to benchmark ({model_name}, {index}):{bench_question}"
-                    )
+                    bench_question.lm_answers[prompt_ver][model_ver] = etask.lm_answer
+
+                    log.debug(f"Added answer to benchmark ({model_name}, {index}):{bench_question}")
+
                     self.num_processed += 1
                     dp = display_progress[d_index]
                     dp["count"] = count

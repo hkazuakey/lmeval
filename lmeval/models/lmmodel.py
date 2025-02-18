@@ -182,8 +182,11 @@ class LMAnswer(CustomModel):
     # model used
     model: LMModel
 
-    # record the actual text prompt used
-    text_prompt: str = Field(default='')
+    text_prompt: str = Field(default='',
+                             description="record the actual text prompt used")
+
+    additional_data: dict = Field(default_factory=dict,
+                                  description="Additional data that are question dependent")
 
     def __str__(self) -> str:
         return str(f"{self.model.name}: {self.answer}")

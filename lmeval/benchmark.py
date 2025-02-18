@@ -100,12 +100,14 @@ class Benchmark(CustomModel):
     def __str__(self) -> str:
         return str(self.name)
 
-    def to_dataframe(self) -> pd.DataFrame:
-        "Return benchmark results as a pandas dataframe"
+    def to_records(self) -> list[dict]:
+        "Return benchmark results as a list of records"
         records = []
+        uniqid = 0  # we can't trust the id from the json/user
         for category in self.categories:
             for task in category.tasks:
                 for qid, question in enumerate(task.questions):
+                    uniqid += 1
                     for prompt_version, data in question.lm_answers.items():
                         for model_version, resp in data.items():
                             total_time = sum([s.execution_time for s in resp.steps])
@@ -114,11 +116,13 @@ class Benchmark(CustomModel):
                             completion_tokens = sum([s.completion_tokens for s in resp.steps])
                             prompt_tokens = sum([s.prompt_tokens for s in resp.steps])
                             records.append({
-                                "qid": qid,
+                                "qid": uniqid,
                                 "category": category.name,
                                 "task": task.name,
                                 "task_type": task.type,
                                 "question": question.question,
+                                "model_answer": resp.answer,
+                                "real_answer": question.answer,
                                 "num_steps": len(resp.steps),
                                 "prompt": prompt_version,
                                 "model": model_version,
@@ -130,6 +134,10 @@ class Benchmark(CustomModel):
                                 "completion_tokens": completion_tokens,
                                 "prompt_tokens": prompt_tokens
                             })
+        return records
+    def to_dataframe(self) -> pd.DataFrame:
+        "Return benchmark results as a DataFrame"
+        records = self.to_records()
         return pd.DataFrame(records)
 
     def save(self, path: str, debug: bool = False, archive = None, use_tempfile: bool | None = None):
@@ -477,15 +485,16 @@ def load_benchmark(path: str, archive = None, use_tempfile: bool | None = None) 
 
 
 
-def list_benchmarks(dir_name: str, archive = None, use_tempfile: bool | None = None) -> List[str]:
-    "List all benchmarks"
+def get_benchmarks_metadata(dir_name: str,
+                            debug: bool = True,
+                            use_tempfile: bool | None = None) -> List[dict]:
+    "Return the metadata of benchmarks located in input directory"
     benchmark_paths = utils.match_files(dir_name, ".*[.]db$")
     rows = []
     for idx, path in enumerate(benchmark_paths):
         parent = utils.Path(path).parent.name
         # use default serializer if needed
-        if not archive:
-            archive = SQLiteArchive(path, use_tempfile=use_tempfile)
+        archive = SQLiteArchive(path, use_tempfile=use_tempfile)
         filesinfo = archive.files_info()
         for finfo in filesinfo:
             if finfo.name == METADATA_FNAME:
@@ -499,8 +508,18 @@ def list_benchmarks(dir_name: str, archive = None, use_tempfile: bool | None = N
                 models = len(stats['models_stats'])
                 answers = stats['answers']
 
-        rows.append([idx, name, version, parent, categories, questions, models, answers, path])
+        row = {'id': idx, 'name': name, "version": version, 'parent_dir': parent,
+               'categories': categories, 'questions': questions, 'models': models,
+               'answers': answers, 'path': path}
 
-    print(tabulate(rows,  headers=['idx', "name", "version", 'parent_dir', 'categories', 'questions',
-                                  'evaled models',  'model answers', 'path']))
+        rows.append(row)
+
+    if debug:
+        print(tabulate(rows))
+    return rows
+
+def list_benchmarks(dir_name: str, archive = None, use_tempfile: bool | None = None) -> List[str]:
+    "List all benchmarks"
+    benchs_data = get_benchmarks_metadata(dir_name, archive, debug=False, use_tempfile=use_tempfile)
+    benchmark_paths = [b['path'] for b in benchs_data]
     return benchmark_paths
