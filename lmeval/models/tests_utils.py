@@ -132,6 +132,7 @@ def eval_single_text_generation(model: LMModel):
     assert not task.punted
     assert task.question.answer.lower() in task.lm_answer.answer.lower()
 
+
 def eval_batch_text_generation(model: LMModel):
     "check ability to answer text questions in batch"
     assert isinstance(model.model_dump_json(), str)
@@ -143,6 +144,7 @@ def eval_batch_text_generation(model: LMModel):
         medias.append(task.question.medias)
     answers = model.batch_generate_text(prompts, medias)
     for a in answers:
+        print(a)
         tasks[a[0]].lm_answer = a[1]
         Evaluator.score_answer(tasks[a[0]])
         print(tasks[a[0]].lm_answer)
