@@ -6,6 +6,7 @@
 - Evalboard UI to compare models across benchmarks
 - Tracking the mapping between letter and answer for multiple choices questions
 to make analysis easier.
+- Track the completion id returned by model to allow for better debugging and tracking.
 
 ### Fixed
 
