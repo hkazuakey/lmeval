@@ -174,23 +174,26 @@ class LiteLLMModel(LMModel):
                     if not self.runtime_vars['is_custom']:
                         try:
                             cost = completion_cost(response)
-                        except:
+                        except Exception as e:
                             cost = 0
                             log.debug(
-                                f"Failed to get cost for model {self.runtime_vars['litellm_version_string']}"
+                                "Failed to get cost for model %s, error: %s", 
+                                self.runtime_vars['litellm_version_string'], repr(e)
                             )
-                except:
+                except Exception as e:
                     log.debug(
-                        f"Failed to get cost from response for {self.runtime_vars['litellm_version_string']}"
+                        "Failed to get cost from response for %s, error: %s", 
+                        self.runtime_vars['litellm_version_string'], repr(e)
                     )
 
                 try:
                     total_tokens = response.usage.total_tokens
                     prompt_tokens = response.usage.prompt_tokens
                     completion_tokens = response.usage.completion_tokens
-                except:
+                except Exception as e:
                     log.debug(
-                        f"Failed to get usage from response for {self.runtime_vars['litellm_version_string']}"
+                        "Failed to get usage from response for %s, error: %s", 
+                        self.runtime_vars['litellm_version_string'], repr(e)"
                     )
             else:
                 iserror = True

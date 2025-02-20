@@ -1,4 +1,4 @@
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +13,13 @@
 # limitations under the License.
 
 from dotenv import load_dotenv
-
-from lmeval.models.vertex import VertexModel
-from lmeval.evaluator import Evaluator
-from .tests_utils import eval_single_text_generation, eval_batch_text_generation, eval_image_analysis
+from lmeval.models.httpmodel import SecLmModel
+from .tests_utils import eval_single_text_generation, eval_batch_text_generation
 
 load_dotenv()
 
 def test_vertex_single_text_generation():
-    eval_single_text_generation(VertexModel())
+    eval_single_text_generation(SecLmModel())
 
 def test_vertex_batch_text_generation():
-    eval_batch_text_generation(VertexModel())
+    eval_batch_text_generation(SecLmModel())

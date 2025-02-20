@@ -38,12 +38,17 @@ class LMModel(CustomModel):
     prompt_prefix: str = Field(default='')
     prompt_suffix: str = Field(default='')
 
-    def generate_text(self, prompt: str, medias: list[Media] | Media = None,
+    def generate_text(self,
+                      prompt: str,
+                      medias: list[Media] | Media = None,
                       temperature: float = 0.0,
+                      max_tokens: int = 4096,
                       completions: int = 1) -> LMAnswer:
         raise NotImplementedError
 
-    def generate_image(self, prompt: str, medias: Optional[list[Media]] = None,
+    def generate_image(self,
+                       prompt: str,
+                       medias: Optional[list[Media]] = None,
                        temperature: float = 0.0,
                        completions: int = 1) -> LMAnswer:
         raise NotImplementedError
@@ -73,20 +78,21 @@ class LMModel(CustomModel):
         ts = int(time())
 
         # add generation as step
-        step = Step(output=text,
-                    isunsafe=isunsafe,
-                    type=StepType.lmgeneration,
-                    # FIXME: support multiple shots
-                    shots=1,
-                    MultiShotStrategy=MultiShotStrategy.single,
-                    total_tokens=total_tokens,
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    iserror=iserror,
-                    error_reason=error_reason,
-                    cost=cost,
-                    timestamp=ts,
-                    execution_time=generation_time)
+        step = Step(
+            output=text,
+            isunsafe=isunsafe,
+            type=StepType.lmgeneration,
+            # FIXME: support multiple shots
+            shots=1,
+            MultiShotStrategy=MultiShotStrategy.single,
+            total_tokens=total_tokens,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            iserror=iserror,
+            error_reason=error_reason,
+            cost=cost,
+            timestamp=ts,
+            execution_time=generation_time)
 
         # FIXME we probably need to be able to pass multiple steps before
         steps = [step]
@@ -114,11 +120,14 @@ class LMModel(CustomModel):
         "convert an image to base64 to send to the model"
         return base64.b64encode(raw_img).decode('utf-8')
 
-    def batch_generate_text(self,
-                            prompts: list[str],
-                            medias: list[list[Media]],
-                            temperature: float = 0.0,
-                            completions: int = 1) -> Generator[Tuple[int, LMAnswer], None, None]:
+    def batch_generate_text(
+            self,
+            prompts: list[str],
+            medias: list[list[Media]],
+            temperature: float = 0.0,
+            max_tokens: int = 4096,
+            completions: int = 1
+    ) -> Generator[Tuple[int, LMAnswer], None, None]:
         """ Generate text answers in batches or parallel."""
         for i, prompt in enumerate(prompts):
             yield i, self.generate_text(prompt, medias[i], temperature,
