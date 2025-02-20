@@ -153,6 +153,7 @@ class LiteLLMModel(LMModel):
         raw_response = ""
         cost = total_tokens = prompt_tokens = completion_tokens = 0
         total_time = 0
+        model_name = self.runtime_vars['litellm_version_string']
 
         if isinstance(resp, ModelResponse):
             response = resp
@@ -176,25 +177,18 @@ class LiteLLMModel(LMModel):
                             cost = completion_cost(response)
                         except Exception as e:
                             cost = 0
-                            log.debug(
-                                "Failed to get cost for model %s, error: %s", 
-                                self.runtime_vars['litellm_version_string'], repr(e)
-                            )
+                            msg = f"Failed to get cost for model: {model_name}, error: {e}"
+                            log.error(msg)
                 except Exception as e:
-                    log.debug(
-                        "Failed to get cost from response for %s, error: %s", 
-                        self.runtime_vars['litellm_version_string'], repr(e)
-                    )
-
+                    msg = f"Failed to get cost for model: {model_name}, error: {e}"
+                    log.error(msg)
                 try:
                     total_tokens = response.usage.total_tokens
                     prompt_tokens = response.usage.prompt_tokens
                     completion_tokens = response.usage.completion_tokens
                 except Exception as e:
-                    log.debug(
-                        "Failed to get usage from response for %s, error: %s", 
-                        self.runtime_vars['litellm_version_string'], repr(e)"
-                    )
+                    msg = f"Failed to get usage from response for {model_name}, error: {e}"
+                    log.error(msg)
             else:
                 iserror = True
                 error_reason = f'{resp}'
