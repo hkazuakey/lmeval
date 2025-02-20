@@ -64,7 +64,6 @@ def sm_create_failures_table(benchmark_data, model):
     question_data = []
 
     for q in benchmark_data['by_question']:
-        print(q.keys())
         if q['model'] == model and q['score'] < 1:  # Only show incorrect answers
             question_data.append({
                 'Question': q['question'],

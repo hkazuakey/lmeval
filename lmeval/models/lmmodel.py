@@ -52,7 +52,24 @@ class LMModel(CustomModel):
                        iserror: bool = False, error_reason: str = '',
                        total_tokens: int = 0, prompt_tokens: int = 0,
                        completion_tokens: int = 0, isunsafe: bool = False,
-                       cost: float = 0.0, prompt:str='') -> LMAnswer:
+                       cost: float = 0.0, prompt:str='',
+                       id: str = '') -> LMAnswer:
+        """Build an answer object.
+
+        Args:
+            text: the generated text
+            generation_time: the time it took to generate the text
+            iserror: if the generation failed
+            error_reason: the reason of the error
+            total_tokens: the total tokens used for the generation
+            prompt_tokens: the tokens used for the prompt
+            completion_tokens: the tokens used for the completion
+            isunsafe: if the safety filters were disabled
+            cost: the cost of the generation
+            prompt: the prompt used for the generation
+            id: the id of the completion as returned by the model
+
+        """
         ts = int(time())
 
         # add generation as step
@@ -76,7 +93,8 @@ class LMModel(CustomModel):
         # FIXME multisteps
         error_step = 1 if iserror else 0
 
-        answer = LMAnswer(answer=text,
+        answer = LMAnswer(id=id,
+                          answer=text,
                           isunsafe=isunsafe,
                           error_step=error_step,
                           iserror=iserror,
@@ -141,6 +159,8 @@ class Step(CustomModel):
 
 
 class LMAnswer(CustomModel):
+    id : str = Field(default='',
+                             description="Completions id returned by the model")
 
     answer: str = Field(default='', description="Final answer")
 

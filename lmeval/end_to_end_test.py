@@ -133,7 +133,7 @@ def test_e2e_benchmarking(gemini_mock, gemini_pro15_mock):
                     assert answer.score == 1.0, f"{question.question} -> {question.answer} not in {answer.answer}"
                     assert not answer.ispunting
                     assert question.answer.lower() in answer.answer.lower()
-
+                    assert answer.id  # do we preserve the model completion id?
                     print(f"Model: {model_name}, Prompt: {prompt_name}, Question: {question.question}, Answer: {answer.answer}, Score: {answer.score}")
 
 def test_e2e_boolean(gemini_mock):

@@ -66,17 +66,11 @@ class LiteLLMModel(LMModel):
         self.runtime_vars['is_custom'] = True if base_url else False
         self.runtime_vars['max_workers'] = max_workers
 
-    def batch_generate_text(
-            self,
-            prompts: list[str],
-            medias: list[list[Media]],
-            temperature: float = 0,
-            max_tokens: int = 4096,
-            completions: int = 1
-    ) -> Generator[Tuple[int, LMAnswer], None, None]:
+    def batch_generate_text(self, prompts: list[str], medias: list[list[Media]],
+                            temperature: float = 0, max_tokens: int = 4096,
+                            completions: int = 1) -> Generator[Tuple[int, LMAnswer], None, None]:
         model = self.runtime_vars['litellm_version_string']
-        assert len(prompts) == len(
-            medias), "prompts and medias should have the same length"
+        assert len(prompts) == len(medias), "prompts and medias should have the same length"
         messages_batch = []
         for i, (prompt, media) in enumerate(zip(prompts, medias)):
             messages_batch.append(self._make_messages(prompt, media))
@@ -115,10 +109,8 @@ class LiteLLMModel(LMModel):
         answer = self._make_answer(resp, prompt)
         return answer
 
-    def _make_messages(
-            self,
-            prompt: str,
-            medias: list[Media] | Media | None = None) -> list[dict]:
+    def _make_messages(self, prompt: str,
+                       medias: list[Media] | Media | None = None) -> list[dict]:
         "build the message to send to the model"
         if medias is None:
             medias = []
@@ -226,7 +218,8 @@ class LiteLLMModel(LMModel):
                                     completion_tokens=completion_tokens,
                                     prompt_tokens=prompt_tokens,
                                     isunsafe=self.isunsafe,
-                                    prompt=prompt)
+                                    prompt=prompt,
+                                    id=resp.id)
         return answer
 
     def _batch_completion(self,

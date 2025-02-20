@@ -110,6 +110,7 @@ def  test_e2e_benchmarking(gemini, gemini_pro15):
                     assert isinstance(answer, LMAnswer)
                     assert answer.score == 1.0, f"{question.question} -> {question.answer} not in {answer.answer}"
                     assert not answer.ispunting
+                    assert answer.id  # check we keep completion id
                     assert question.answer.lower() in answer.answer.lower()
 
                     print(f"Model: {model_name}, Prompt: {prompt_name}, Question: {question.question}, Answer: {answer.answer}, Score: {answer.score}")

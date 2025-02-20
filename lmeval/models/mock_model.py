@@ -62,23 +62,24 @@ class MockModel(LMModel):
       temperature: float | None = 0.0,
       completions: int = 1) -> LMAnswer:
     # print(f"generate_text: {prompt}")
+    id = "mock"
     request_response = self.runtime_vars["request_response"]
     if prompt in request_response:
       answer = self._build_answer(request_response[prompt],
                                  generation_time=0.2,
                                  iserror=False,
-                                 error_reason="", 
-                                 prompt=prompt)
+                                 error_reason="",
+                                 prompt=prompt, id=id)
     elif "default_response" in self.runtime_vars:
         default_response = self.runtime_vars["default_response"]
         answer = self._build_answer(default_response,
                                    generation_time=0.2,
                                    iserror=False,
                                    error_reason="",
-                                   prompt=prompt)
+                                   prompt=prompt, id=id)
     else:
         answer = self._build_answer("", generation_time=0.2, iserror=True,
-                                   error_reason="No matching request found")
+                                    id=id, error_reason="No matching request found")
 
     return answer
 
