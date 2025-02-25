@@ -110,11 +110,15 @@ class Benchmark(CustomModel):
                     uniqid += 1
                     for prompt_version, data in question.lm_answers.items():
                         for model_version, resp in data.items():
-                            total_time = sum([s.execution_time for s in resp.steps])
+                            total_time = sum(
+                                [s.execution_time for s in resp.steps])
                             total_cost = sum([s.cost for s in resp.steps])
-                            total_tokens = sum([s.total_tokens for s in resp.steps])
-                            completion_tokens = sum([s.completion_tokens for s in resp.steps])
-                            prompt_tokens = sum([s.prompt_tokens for s in resp.steps])
+                            total_tokens = sum(
+                                [s.total_tokens for s in resp.steps])
+                            completion_tokens = sum(
+                                [s.completion_tokens for s in resp.steps])
+                            prompt_tokens = sum(
+                                [s.prompt_tokens for s in resp.steps])
                             records.append({
                                 "qid": uniqid,
                                 "category": category.name,
@@ -135,12 +139,17 @@ class Benchmark(CustomModel):
                                 "prompt_tokens": prompt_tokens
                             })
         return records
+
     def to_dataframe(self) -> pd.DataFrame:
         "Return benchmark results as a DataFrame"
         records = self.to_records()
         return pd.DataFrame(records)
 
-    def save(self, path: str, debug: bool = False, archive = None, use_tempfile: bool | None = None):
+    def save(self,
+             path: str,
+             debug: bool = False,
+             archive=None,
+             use_tempfile: bool | None = None):
         "save the benchmark to a file path"
 
         # FIXME: perform benchmark checks with validate()
@@ -155,11 +164,14 @@ class Benchmark(CustomModel):
         # check model versions are unique
         # check prompt versions are unique
 
+        log.info("Saving benchmark to %s", path)
         if use_tempfile is None:
             use_tempfile = utils.is_google()
         # use default serializer if needed
         if not archive:
-            archive = SQLiteArchive(path, use_tempfile=use_tempfile, restore=False)
+            archive = SQLiteArchive(path,
+                                    use_tempfile=use_tempfile,
+                                    restore=False)
 
         # only perform fname check for ondisk
         if isinstance(archive, SQLiteArchive):
@@ -183,18 +195,23 @@ class Benchmark(CustomModel):
 
         if to_save:
             self.num_medias = len(to_save)
-            for media in tqdm(to_save, desc="Saving medias content in benchmark archive"):
+            for media in tqdm(
+                    to_save,
+                    desc="Saving medias content in benchmark archive"):
                 fname = f"media/{media.filename}"
 
                 if media.content:
                     content = media.content
                 else:
                     if not utils.Path(media.original_path).exists():
-                        raise ValueError(f"media {media.original_path} not found")
+                        raise ValueError(
+                            f"media {media.original_path} not found")
 
                     # load and save content in the arxiv
                     content = utils.Path(media.original_path).read_bytes()
-                archive.write(fname, content, encrypted=True,
+                archive.write(fname,
+                              content,
+                              encrypted=True,
                               compress=False,
                               modality=media.modality,
                               file_type=media.filetype)
@@ -204,30 +221,36 @@ class Benchmark(CustomModel):
                 media.is_stored = True
 
         # metadata
-        metadata = {"name": self.name,
-                    "version": self.version,
-                    "description": self.description,
-                    "authors": self.authors,
-                    "license": self.license,
-                    "contact": self.contact,
-                    "last_update": self.last_update,
-                    "storage_format": archive.version_string(),
-                    "url": self.url}
+        metadata = {
+            "name": self.name,
+            "version": self.version,
+            "description": self.description,
+            "authors": self.authors,
+            "license": self.license,
+            "contact": self.contact,
+            "last_update": self.last_update,
+            "storage_format": archive.version_string(),
+            "url": self.url
+        }
         archive.write_json(METADATA_FNAME, metadata, encrypted=False)
 
         #stats
         archive.write_json(STATS_FNAME, self.get_stats(), encrypted=False)
 
         # serialize the benchmark data
-        archive.write(BENCHMARK_FNAME, self.model_dump_json().encode(),
-                      encrypted=True, compress=True, file_type="json",
+        archive.write(BENCHMARK_FNAME,
+                      self.model_dump_json().encode(),
+                      encrypted=True,
+                      compress=True,
+                      file_type="json",
                       modality="data")
 
         if debug:
             print(f"Saved benchmark to {path}")
 
         # reload medias as saving removed them
-        pb = tqdm(total=self.num_medias, desc="Reloading medias content from benchmark archive")
+        pb = tqdm(total=self.num_medias,
+                  desc="Reloading medias content from benchmark archive")
         for category in self.categories:
             for task in category.tasks:
                 for question in task.questions:
@@ -248,7 +271,6 @@ class Benchmark(CustomModel):
         if self.get_category(category.name):
             raise ValueError(f"Category {category.name} already exists")
         self.categories.append(category)
-
 
     def get_category(self, category_name: str) -> Category:
         """Get a category by name
@@ -291,7 +313,8 @@ class Benchmark(CustomModel):
         num_questions = 0
 
         for category in self.categories:
-            num_questions_per_category = sum([len(task.questions) for task in category.tasks])
+            num_questions_per_category = sum(
+                [len(task.questions) for task in category.tasks])
             num_questions += num_questions_per_category
             cat_answers = 0
             cat_models = set()
@@ -339,13 +362,14 @@ class Benchmark(CustomModel):
                                 "models": len(data),
                             }
 
-                        task_stats[category.name][task.name]['models'] += len(data)
-
+                        task_stats[category.name][task.name]['models'] += len(
+                            data)
 
                         for model_version, resp in data.items():
                             prompt_stats[prompt_version]['answers'] += 1
                             prompt_stats[prompt_version]['score'] += resp.score
-                            prompt_stats[prompt_version]['punts'] += resp.ispunting
+                            prompt_stats[prompt_version][
+                                'punts'] += resp.ispunting
 
                             if model_version not in models_stats:
                                 models_stats[model_version] = {
@@ -356,26 +380,26 @@ class Benchmark(CustomModel):
 
                             models_stats[model_version]['answers'] += 1
                             models_stats[model_version]['score'] += resp.score
-                            models_stats[model_version]['punts'] += resp.ispunting
+                            models_stats[model_version][
+                                'punts'] += resp.ispunting
                             category_cnts['punts'] += resp.ispunting
 
-
-                            task_stats[category.name][task.name]['answers'] += 1
-                            task_stats[category.name][task.name]['punts'] += resp.ispunting
-
-
+                            task_stats[category.name][
+                                task.name]['answers'] += 1
+                            task_stats[category.name][
+                                task.name]['punts'] += resp.ispunting
 
             categories_stats[category.name] = {
-                                               "tasks": len(category.tasks),
-                                               "prompts": len(prompt_stats),
-                                               "questions": num_questions_per_category,
-                                               "answers": cat_answers,
-                                               "models": len(cat_models),
-                                               "punts": category_cnts['punts'],
-                                               'images': category_cnts['images'],
-                                               'audio': category_cnts['audio'],
-                                               'video': category_cnts['video'],
-                                            }
+                "tasks": len(category.tasks),
+                "prompts": len(prompt_stats),
+                "questions": num_questions_per_category,
+                "answers": cat_answers,
+                "models": len(cat_models),
+                "punts": category_cnts['punts'],
+                'images': category_cnts['images'],
+                'audio': category_cnts['audio'],
+                'video': category_cnts['video'],
+            }
             num_answers += cat_answers
 
         return {
@@ -404,34 +428,37 @@ class Benchmark(CustomModel):
                 rows.append(["", "", "", "", "", "", "", ""])
 
             k = f"{cat_name}"
-            rows.append([k, '', '',
-                         stats['categories_stats'][cat_name]['questions'],
-                          '', '', '',
-                         stats['categories_stats'][cat_name]['prompts'],
-                         stats['categories_stats'][cat_name]['models'],
-                         stats['categories_stats'][cat_name]['answers'],
-                         stats['categories_stats'][cat_name]['punts']])
+            rows.append([
+                k, '', '', stats['categories_stats'][cat_name]['questions'],
+                '', '', '', stats['categories_stats'][cat_name]['prompts'],
+                stats['categories_stats'][cat_name]['models'],
+                stats['categories_stats'][cat_name]['answers'],
+                stats['categories_stats'][cat_name]['punts']
+            ])
 
             for task_name, c in tdata.items():
                 k = f"|- {task_name}"
-                rows.append([k,
-                             c['type'],
-                             c['level'],
-                             c['questions'],
-                             c['images'],
-                             c['audio'],
-                             c['video'],
-                             c['prompts'],
-                             c['models'],
-                             c['answers'],
-                             c['punts']])
-        print(tabulate(rows, headers=["", "Type", "Level", "Questions", "Images", "Audios", "Videos", "Prompts", "Models", "Answers", "Punts"]))
-
+                rows.append([
+                    k, c['type'], c['level'], c['questions'], c['images'],
+                    c['audio'], c['video'], c['prompts'], c['models'],
+                    c['answers'], c['punts']
+                ])
+        print(
+            tabulate(rows,
+                     headers=[
+                         "", "Type", "Level", "Questions", "Images", "Audios",
+                         "Videos", "Prompts", "Models", "Answers", "Punts"
+                     ]))
 
         if stats['answers']:
             print("\n[Answers Stats]")
-            rows = [[k, v['answers'], v['score']/v['answers'], v['punts']] for k, v in stats['models_stats'].items()]
-            print(tabulate(rows, headers=["Model", "Num Answers", "Avg Score", "Num Punts"]))
+            rows = [[k, v['answers'], v['score'] / v['answers'], v['punts']]
+                    for k, v in stats['models_stats'].items()]
+            print(
+                tabulate(
+                    rows,
+                    headers=["Model", "Num Answers", "Avg Score",
+                             "Num Punts"]))
 
 
 def get_benchmark_fileinfo(path: str) -> list[FileInfo]:
