@@ -37,7 +37,8 @@ class LiteLLMModel(LMModel):
                  modalities: list[Modality] = [Modality.text],
                  base_url: Optional[str] = None,
                  api_key: Optional[str] = None,
-                 max_workers: Optional[int] = 100):
+                 max_workers: Optional[int] = 20,
+                 benchmark_name: str = "unknown"):
         """Init a LiteLLMModel compatible model
 
         Args:
@@ -65,6 +66,7 @@ class LiteLLMModel(LMModel):
         self.runtime_vars['base_url'] = base_url
         self.runtime_vars['is_custom'] = True if base_url else False
         self.runtime_vars['max_workers'] = max_workers
+        self.runtime_vars['benchmark_name'] = benchmark_name
 
     def batch_generate_text(self, prompts: list[str], medias: list[list[Media]],
                             temperature: float = 0, max_tokens: int = 4096,
@@ -225,6 +227,7 @@ class LiteLLMModel(LMModel):
                           temperature: float = 0.0,
                           max_tokens: int = 4096,
                           completions: int = 1) -> list[ModelResponse]:
+
         #! we need to isolate the batch completion to allow various implementation to pass additonals parameters
         batch_responses = batch_completion(
             model=model,
@@ -234,7 +237,8 @@ class LiteLLMModel(LMModel):
             n=completions,
             api_key=self.runtime_vars.get('api_key'),
             base_url=self.runtime_vars.get('base_url'),
-            max_workers=self.runtime_vars.get('max_workers'))
+            max_workers=self.runtime_vars.get('max_workers'),
+            extra_headers=self._make_headers())
         return batch_responses
 
     def _completion(self,
@@ -250,5 +254,12 @@ class LiteLLMModel(LMModel):
                           max_tokens=max_tokens,
                           n=completions,
                           api_key=self.runtime_vars.get('api_key'),
-                          base_url=self.runtime_vars.get('base_url'))
+                          base_url=self.runtime_vars.get('base_url'),
+                          extra_headers=self._make_headers())
         return resp
+
+    def _make_headers(self) -> dict[str, str]:
+        headers = {
+            'x-lmeval-benchmark': self.runtime_vars['benchmark_name'],
+        }
+        return headers
