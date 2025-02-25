@@ -126,7 +126,8 @@ class HttpBaseModel(LMModel):
                                     headers=self.runtime_vars.get('header'),
                                     json=data,
                                     timeout=self.runtime_vars.get('timeout'))
-                log.debug('returned: %s', str(res))
+                log.debug('returned: %s', res)
+                res.raise_for_status()
                 return json.loads(res.text)
             except Exception as e:  # pylint: disable=broad-except
                 log.warning('POST encountered error %s', repr(e))
@@ -250,8 +251,15 @@ class SecLmModel(HttpBaseModel):
                                                      temperature, max_tokens,
                                                      completions)
         except Exception as e:  # pylint: disable=broad-except
-            log.error('batch generation failed: %s', repr(e))
-            batch_responses = [None] * len(prompts)
+            error_message = f'batch generation failed {repr(e)}'
+            log.error(error_message)
+            batch_responses = [
+                self._build_answer(text='',
+                                   generation_time=0,
+                                   iserror=True,
+                                   error_reason=error_message)
+                for _ in range(len(prompts))
+            ]
 
         for i, answer in enumerate(batch_responses):
             yield i, answer
