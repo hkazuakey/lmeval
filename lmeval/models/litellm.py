@@ -121,6 +121,7 @@ class LiteLLMModel(LMModel):
         except Exception as e:
             resp = None
             print("Can't get response from model:", e)
+            print(traceback.format_exc())
 
         answer = self._make_answer(resp, prompt)
         return answer
@@ -148,8 +149,7 @@ class LiteLLMModel(LMModel):
 
         except Exception as e:
             resp = None
-            print("Can't get response from model:", e)
-            print(traceback.format_exc())
+            print("Can't get response from model:", traceback.format_exc())
 
         answer = self._make_answer(resp)
         return answer
@@ -280,6 +280,10 @@ class LiteLLMModel(LMModel):
                 generation_kwargs, self.runtime_vars["generation_kwargs"]
             )
 
+        if "supports_system_prompt" in self.runtime_vars and not self.runtime_vars["supports_system_prompt"]:
+            messages_batch = [self._replace_system_messages(messages) for messages in messages_batch]
+            messages_batch = [self._merge_messages_by_role(messages) for messages in messages_batch]
+
         batch_responses = batch_completion(
             model=model,
             messages=messages_batch,
@@ -306,7 +310,10 @@ class LiteLLMModel(LMModel):
                 generation_kwargs, self.runtime_vars["generation_kwargs"]
             )
 
-        #! we need to isolate the batch completion to allow various implementation to pass additonals parameters
+        if "supports_system_prompt" in self.runtime_vars and not self.runtime_vars["supports_system_prompt"]:
+            messages = self._replace_system_messages(messages)
+            messages = self._merge_messages_by_role(messages)
+
         resp = completion(model=model,
                           messages=messages,
                           temperature=temperature,
@@ -317,6 +324,27 @@ class LiteLLMModel(LMModel):
                           extra_headers=self._make_headers(),
                           **generation_kwargs)
         return resp
+
+    def _replace_system_messages(self, messages: list[dict]) -> list[dict]:
+        for m in messages:
+            if m["role"] == "system":
+                m["role"] = "user"
+        return messages
+
+    def _merge_messages_by_role(self, messages: list[dict]) -> list[dict]:
+        current_role = messages[0]["role"]
+        current_content = messages[0]["content"]
+
+        messages_merged = []
+        for m in messages:
+            if m["role"] == current_role:
+                current_content += "\n\n" + m["content"]
+            else:
+                messages_merged.append({"role": current_role, "content": current_content})
+                current_role = m["role"]
+                current_content = m["content"]
+        messages_merged.append({"role": current_role, "content": current_content})
+        return messages_merged
 
     def _make_headers(self) -> dict[str, str]:
         headers = {
