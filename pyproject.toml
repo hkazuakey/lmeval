@@ -32,5 +32,5 @@ dev-dependencies = [
     "pytest>=8.3.3",
 ]
 
-[tool.setuptools]
-packages = ["lmeval"]
+[tool.setuptools.packages.find]
+include = ["lmeval*"]
