@@ -210,6 +210,8 @@ class LiteLLMModel(LMModel):
             log.debug("response: %s", response)
             try:
                 raw_response = response.choices[0].message.content
+                if raw_response is None:
+                    raise ValueError("No response from model")
             except Exception as e:
                 try:
                     iserror = True
