@@ -60,6 +60,7 @@ class MockModel(LMModel):
       prompt: str,
       medias: List[Media] | Media = [],
       temperature: float | None = 0.0,
+      max_tokens: int = 4096,
       completions: int = 1) -> LMAnswer:
     # print(f"generate_text: {prompt}")
     id = "mock"
@@ -85,7 +86,7 @@ class MockModel(LMModel):
 
   def batch_generate_text(
       self, prompts: list[str], medias: list[list[Media] | Media] = [],
-      temperature: float | None = 0.0,
+      temperature: float | None = 0.0, max_tokens:int = 4096,
       completions: int = 1) -> Generator[Tuple[int, LMAnswer], None, None]:
     log.info(f"mock-batch_generate_text: {len(prompts)} prompts")
     for i, prompt in enumerate(prompts):
