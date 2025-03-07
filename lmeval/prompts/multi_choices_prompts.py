@@ -39,17 +39,21 @@ MULTI_ANSWER_TEMPLATE = """
 
 
 class MultiChoicesMultiAnswersPrompt(Prompt):
+    use_original_letters: bool = False
+
     def __init__(self,
                 template: str = MULTI_ANSWER_TEMPLATE,
                 name: str = "Multi Choices Multi Answer Picker",
                 description: str = "Ask the model to return the letters associated with potentially multiple correct answers",
                 task_type = TaskType.multiple_choices_multiple_answers,
                 url: str = '',
-                version: str = '1.0'):
+                version: str = '1.0',
+                use_original_letters: bool = False):
 
             super().__init__(name=name, description=description,
                             task_type=task_type, template=template, url=url,
                             version=version)
+            self.use_original_letters = use_original_letters
 
     def render(self, question: Question, task: Task) -> str:
         "Render prompt for a given question and task"
@@ -69,7 +73,10 @@ class MultiChoicesMultiAnswersPrompt(Prompt):
             question.letter_mapping = question.prompt_cache[version]['letter_mapping']
         else:
             possible_answers = [question.answer] + question.additional_answers +  question.choices
-            random.shuffle(possible_answers)
+            if self.use_original_letters:
+                assert len(possible_answers) == len(question.original_letters), f"Original letters {question.original_letters} should match the number of possible answers {possible_answers}"
+            else:    
+                random.shuffle(possible_answers)
 
             # Construct the list of possible answers
             choices_list = []
@@ -77,7 +84,7 @@ class MultiChoicesMultiAnswersPrompt(Prompt):
             letter_mapping = {}
             correct_letters = []
             for idx, answer in enumerate(possible_answers):
-                letter = ascii_uppercase[idx]
+                letter = question.original_letters[idx] if self.use_original_letters else ascii_uppercase[idx]
                 # don't put space between letter and answer it decrease accuracy...
                 choices_list.append(f"{letter}:{answer}")
                 letters_list.append(letter)
@@ -88,6 +95,10 @@ class MultiChoicesMultiAnswersPrompt(Prompt):
                     correct_letters.append(letter)
                 if answer in question.additional_answers:
                     correct_letters.append(letter)
+            if self.use_original_letters:
+                choices_list.sort()
+                letters_list.sort()
+                correct_letters.sort()
 
             question.answer_letter = ', '.join(correct_letters)
 
@@ -132,6 +143,7 @@ TEMPLATE = """
 
 
 class MultiChoicesPrompt(Prompt):
+    use_original_letters: bool = False
 
     def __init__(self,
                 template: str = TEMPLATE,
@@ -139,11 +151,13 @@ class MultiChoicesPrompt(Prompt):
                 description: str = "Ask the model to return the letter associated with the correct answer",
                 task_type = TaskType.multiple_choices,
                 url: str = '',
-                version: str = '1.0'):
+                version: str = '1.0',
+                use_original_letters: bool = False):
 
             super().__init__(name=name, description=description,
                             task_type=task_type, template=template, url=url,
                             version=version)
+            self.use_original_letters = use_original_letters
 
     def render(self, question: Question, task: Task) -> str:
         "Render prompt for a given question and task"
@@ -162,20 +176,26 @@ class MultiChoicesPrompt(Prompt):
             question.letter_mapping = question.prompt_cache[version]['letter_mapping']
         else:
             possible_answers = [question.answer] + question.choices
-            random.shuffle(possible_answers)
+            if self.use_original_letters:
+                assert len(possible_answers) == len(question.original_letters), f"Original letters {question.original_letters} should match the number of possible answers {possible_answers}"
+            else:    
+                random.shuffle(possible_answers)
 
             # Construct the list of possible answers
             choices_list = []
             letters_list = []
             letter_mapping = {}
             for idx, answer in enumerate(possible_answers):
-                letter = ascii_uppercase[idx]
+                letter = question.original_letters[idx] if self.use_original_letters else ascii_uppercase[idx]
                 # don't put space between letter and answer it decrease accuracy...
                 choices_list.append(f"{letter}:{answer}")
                 letters_list.append(letter)
                 letter_mapping[letter] = answer
                 if answer == question.answer:
                     question.answer_letter = letter
+            if self.use_original_letters:
+                choices_list.sort()
+                letters_list.sort()
 
             # flatten
             multi_choices = "\n".join(choices_list)
