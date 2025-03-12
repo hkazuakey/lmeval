@@ -71,6 +71,7 @@ class EvalTask(CustomModel): #  Generic[M, P]):
 
 class CompletionEvalTask(EvalTask):
     messages: list[dict]
+    tools: list[dict] | None = None
 
 
 class Evaluator():
@@ -185,6 +186,7 @@ class Evaluator():
                                     lm_answer=None,
                                     prompt=prompt,
                                     messages=question.messages,
+                                    tools=question.tools,
                                     punt_detector=punt_detector,
                                 )
                             else:
@@ -497,7 +499,7 @@ class Evaluator():
 
         # generate model answer
         if isinstance(etask, CompletionEvalTask):
-            model_answer: LMAnswer = etask.lm_model.complete(etask.messages)
+            model_answer: LMAnswer = etask.lm_model.complete(etask.messages, tools=etask.tools)
         else:
             model_answer: LMAnswer = etask.lm_model.generate_text(
                 instanciated_prompt, medias=etask.question.medias)

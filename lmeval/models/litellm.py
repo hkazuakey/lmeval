@@ -16,6 +16,7 @@ from collections.abc import Generator
 import time
 import traceback
 from typing import Optional, Tuple
+import litellm
 from litellm import completion, completion_cost, batch_completion
 from litellm import ModelResponse, CustomStreamWrapper
 
@@ -311,6 +312,13 @@ class LiteLLMModel(LMModel):
             generation_kwargs = update_generation_kwargs(
                 generation_kwargs, self.runtime_vars["generation_kwargs"]
             )
+        
+        tools = generation_kwargs.pop("tools", None)
+        if tools is not None:
+            assert len(tools) > 0, "tools should not be empty"
+            
+        if not litellm.supports_parallel_function_calling(model) and tools is not None:
+            litellm.add_function_to_prompt = True
 
         if "supports_system_prompt" in self.runtime_vars and not self.runtime_vars["supports_system_prompt"]:
             messages = self._replace_system_messages(messages)
@@ -324,6 +332,7 @@ class LiteLLMModel(LMModel):
                           api_key=self.runtime_vars.get('api_key'),
                           base_url=self.runtime_vars.get('base_url'),
                           extra_headers=self._make_headers(),
+                          tools=tools,
                           **generation_kwargs)
         return resp
 

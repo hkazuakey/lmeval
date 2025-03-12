@@ -71,6 +71,9 @@ class Question(CustomModel):
     # metadata for the question and for the evaluation
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
+    # tools to be used by the llm model
+    tools: List[dict] | None = None
+
     # can't use model_ : it is reserved for pydantic
     # lm_answers[prompt_version][model_version, LMAnswer]
     lm_answers: Dict[str, Dict[str, LMAnswer]] = Field(default_factory=dict)
