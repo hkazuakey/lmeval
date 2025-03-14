@@ -142,6 +142,8 @@ def eval_batch_text_generation(model: LMModel):
         prompts.append(task.prompt.render(task.question, task.task))
         medias.append(task.question.medias)
     answers = model.batch_generate_text(prompts, medias)
+    answers = [a for a in answers if a is not None]
+    assert len(answers) == len(tasks)
     for a in answers:
         tasks[a[0]].lm_answer = a[1]
         Evaluator.score_answer(tasks[a[0]])

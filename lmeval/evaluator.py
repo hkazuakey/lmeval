@@ -46,6 +46,7 @@ class AnswerStatus(Enum):
     planned = 1
 
 class EvalTask(CustomModel): #  Generic[M, P]):
+    benchmark_name: str  # needed to propagate it to the models
     question: Question
     category: Category
     task: Task
@@ -90,18 +91,14 @@ class Evaluator():
 
         if isinstance(benchmark, str):
             if benchmark == self.save_path:
-                print(
-                    "benchmark_path and save_path are the same, results will be appended to the benchmark file."
-                )
+                print("benchmark_path and save_path are the same, results will be appended to the benchmark file.")
             # fixme: catch error if path is not valid
             self.benchmark: Benchmark = load_benchmark(
                 benchmark, use_tempfile=use_tempfile)
         elif isinstance(benchmark, (Benchmark, lmeval.benchmark.Benchmark)):
             self.benchmark = benchmark
         else:
-            raise ValueError(
-                f"No benchmark or benchmark path provided - {type(benchmark)} provided"
-            )
+            raise ValueError(f"No benchmark or benchmark path provided - {type(benchmark)} provided")
 
         # user supplied callback for integration
         self.callback = callback
@@ -135,8 +132,7 @@ class Evaluator():
 
         # boxing models and prompts if not lists
         models_list: list[M] = models if isinstance(models, list) else [models]
-        prompts_list: list[P] = prompts if isinstance(prompts,
-                                                      list) else [prompts]
+        prompts_list: list[P] = prompts if isinstance(prompts, list) else [prompts]
 
         # initial sanity checks
         # FIXME: call benchmark.validate() when implemented
@@ -144,9 +140,7 @@ class Evaluator():
         versions = set()
         for model in models_list:
             versions.add(model.version_string)
-        assert len(versions) == len(
-            models_list
-        ), f"Models should have unique version strings - found {len(models_list)} models and {len(versions)} unique version strings"
+        assert len(versions) == len(models_list), f"Models should have unique version strings - found {len(models_list)} models and {len(versions)} unique version strings"
 
         # plan the evaluations
         for category in self.benchmark.categories:
@@ -176,6 +170,7 @@ class Evaluator():
 
                             # create evaluation task and queue it
                             evaltask = EvalTask(
+                                benchmark_name=self.benchmark.name,
                                 question=question,
                                 category=category,
                                 task=task,
@@ -359,22 +354,12 @@ class Evaluator():
                     etasks=etasks,
                     d_index=len(display_progress),
                 )
-                display_progress.append({
-                    "pbar":
-                    tqdm(desc=f"Model {model_name}", total=len(etasks)),
-                    "total":
-                    len(etasks),
-                    "count":
-                    0,
-                    "error":
-                    0,
-                    "punt":
-                    0,
-                    "score":
-                    0.0,
-                    "shown":
-                    0
-                })
+                display_progress.append({"pbar": tqdm(desc=f"Model {model_name}",
+                                                      total=len(etasks)),
+                                                      "total": len(etasks),
+                                                      "count": 0, "error": 0,
+                                                      "punt": 0, "score": 0.0,
+                                                      "shown": 0})
                 futures.append(executor.submit(func))
             done = False
             while not done:

@@ -1,4 +1,12 @@
 # Changelog
+## [0.11.1] - 2025-02-26
+
+### Fixed
+
+- Serialization function that had obsolete args
+- Update dependencies to fix errors with openai models
+
+
 ## [0.11.0] - 2025-02-15
 
 ### Added

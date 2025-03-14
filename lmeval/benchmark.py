@@ -545,8 +545,9 @@ def get_benchmarks_metadata(dir_name: str,
         print(tabulate(rows))
     return rows
 
-def list_benchmarks(dir_name: str, archive = None, use_tempfile: bool | None = None) -> List[str]:
+def list_benchmarks(dir_name: str, use_tempfile: bool | None = None) -> List[str]:
     "List all benchmarks"
-    benchs_data = get_benchmarks_metadata(dir_name, archive, debug=False, use_tempfile=use_tempfile)
+    benchs_data = get_benchmarks_metadata(dir_name, debug=False,
+                                          use_tempfile=use_tempfile)
     benchmark_paths = [b['path'] for b in benchs_data]
     return benchmark_paths

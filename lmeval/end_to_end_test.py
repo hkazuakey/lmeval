@@ -161,8 +161,10 @@ def test_e2e_boolean(gemini_mock):
         assert data['answer'].lower() in answer.answer.lower()
 
         # check evaluator works correctly
-        etask = EvalTask(category=category, task=task, question=question, lm_model=gemini_mock,
-                        prompt=TrueOrFalseAnswerPrompt())
+        etask = EvalTask(benchmark_name='test_e2e_boolean',
+                         category=category, task=task, question=question,
+                         lm_model=gemini_mock,
+                         prompt=TrueOrFalseAnswerPrompt())
 
         etask = Evaluator.generate_answer(etask)
         assert data['answer'].lower() in etask.lm_answer.answer.lower()
@@ -203,8 +205,9 @@ def test_e2e_multi(gemini_mock):
         assert question.letter_mapping[letter] == data['answer']
 
         # check evaluator works correctly
-        etask = EvalTask(category=category, task=task, question=question, lm_model=gemini_mock,
-                        prompt=MultiChoicesPrompt())
+        etask = EvalTask(benchmark_name='test_e2e_multi',
+                         category=category, task=task, question=question,
+                         lm_model=gemini_mock, prompt=MultiChoicesPrompt())
 
         etask = Evaluator.generate_answer(etask)
         etask = Evaluator.score_answer(etask)
@@ -246,7 +249,8 @@ def test_e2e_multi_answers():
         assert answer in question.letter_mapping.values()
 
     # check evaluator works correctly on a real model
-    etask = EvalTask(category=category, task=task, question=question,
+    etask = EvalTask(benchmark_name='test_e2e_multi_answers',
+                    category=category, task=task, question=question,
                     lm_model=real_gemini,
                     prompt=MultiChoicesMultiAnswersPrompt())
 
@@ -287,8 +291,9 @@ def test_e2e_text_generation(gemini_mock):
         assert data['answer'].lower() in answer.answer.lower()
 
         # check evaluator works correctly
-        etask = EvalTask(category=category, task=task, question=question, lm_model=gemini_mock,
-                        prompt=QuestionOnlyPrompt())
+        etask = EvalTask(benchmark_name='test_e2e_text_generation', category=category,
+                         task=task, question=question, lm_model=gemini_mock,
+                         prompt=QuestionOnlyPrompt())
 
         etask = Evaluator.generate_answer(etask)
         etask = Evaluator.score_answer(etask)
