@@ -24,6 +24,7 @@ import functools
 import lmeval
 import threading
 import time
+import traceback
 
 from lmeval import utils
 from lmeval.logger import log
@@ -312,8 +313,8 @@ class Evaluator():
             punt = 0
             for index, answer in model.batch_execute(prompts=prompts,
                                                      medias=medias,
-                                                     tasks_types=[etask.task.type for etask in etasks]):
-
+                                                     tasks_types=[etask.task.type for etask in etasks],
+                                                     tools=[etask.tools for etask in etasks]):
                 assert answer is not None, f"Answer generation failed for model {model_name}"
                 log.debug(f"model:index: {model_name}, {index}")
                 log.debug(f"model:answer: {answer.answer}")
@@ -499,6 +500,7 @@ class Evaluator():
 
         # generate model answer
         if isinstance(etask, CompletionEvalTask):
+            print(f"tools here: {etask.tools}")
             model_answer: LMAnswer = etask.lm_model.complete(etask.messages, tools=etask.tools)
         else:
             model_answer: LMAnswer = etask.lm_model.generate_text(
@@ -536,6 +538,7 @@ class Evaluator():
             log.debug(f"answer score: {score}")
         except Exception as e:
             log.error(f"error scoring answer: {e}")
+            traceback.print_exc()
             etask.lm_answer.iserror = True
             etask.error = True
 

@@ -14,6 +14,7 @@
 
 from collections.abc import Generator
 import time
+import json
 import traceback
 from typing import Optional, Tuple
 import litellm
@@ -136,7 +137,6 @@ class LiteLLMModel(LMModel):
         **generation_kwargs,
     ) -> LMAnswer:
         # FIXME: finish multi-completion support
-
         try:
             arguments = dict(
                 model=self.runtime_vars["litellm_version_string"],
@@ -211,8 +211,16 @@ class LiteLLMModel(LMModel):
             log.debug("response: %s", response)
             try:
                 raw_response = response.choices[0].message.content
-                if raw_response is None:
+                tool_calls = response.choices[0].message.tool_calls
+                if raw_response is None and tool_calls is None:
                     raise ValueError("No response from model")
+                if raw_response is None and tool_calls is not None:
+                    tool_call = {
+                        "name": tool_calls[0].function.name,
+                        "arguments": json.loads(tool_calls[0].function.arguments)
+                    }
+                    raw_response = json.dumps(tool_call)
+
             except Exception as e:
                 try:
                     iserror = True
@@ -313,13 +321,16 @@ class LiteLLMModel(LMModel):
                 generation_kwargs, self.runtime_vars["generation_kwargs"]
             )
         
-        tools = generation_kwargs.pop("tools", None)
-        if tools is not None:
-            assert len(tools) > 0, "tools should not be empty"
-            
-        if not litellm.supports_parallel_function_calling(model) and tools is not None:
-            litellm.add_function_to_prompt = True
+        use_provider_tools_format = False
+        if "tools" in generation_kwargs and generation_kwargs["tools"] is not None:
+            assert len(generation_kwargs["tools"]) > 0, "tools should not be empty"
+            use_provider_tools_format = True
 
+        if not litellm.supports_function_calling(model) and use_provider_tools_format:
+            litellm.add_function_to_prompt = True
+            tools_definition = generation_kwargs.pop("tools")
+            generation_kwargs["functions_unsupported_model"] = tools_definition
+            
         if "supports_system_prompt" in self.runtime_vars and not self.runtime_vars["supports_system_prompt"]:
             messages = self._replace_system_messages(messages)
             messages = self._merge_messages_by_role(messages)
@@ -332,7 +343,6 @@ class LiteLLMModel(LMModel):
                           api_key=self.runtime_vars.get('api_key'),
                           base_url=self.runtime_vars.get('base_url'),
                           extra_headers=self._make_headers(),
-                          tools=tools,
                           **generation_kwargs)
         return resp
 

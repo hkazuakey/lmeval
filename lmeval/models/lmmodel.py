@@ -124,13 +124,18 @@ class LMModel(CustomModel):
         "convert an image to base64 to send to the model"
         return base64.b64encode(raw_img).decode('utf-8')
 
-    def batch_execute(self, prompts: list[str|list[dict]], medias: list[list[Media]],
-                      tasks_types: list[TaskType], temperature: float = 0.0,
-                      completions: int = 1) -> Generator[Tuple[int, LMAnswer], None, None]:
+    def batch_execute(self,
+                      prompts: list[str|list[dict]],
+                      medias: list[list[Media]],
+                      tasks_types: list[TaskType],
+                      tools: list[list[dict]],
+                      temperature: float = 0.0,
+                      completions: int = 1,
+                      ) -> Generator[Tuple[int, LMAnswer], None, None]:
         """ Execute a batch of prompts in parallel."""
-        for i, (prompt, t_type) in enumerate(zip(prompts, tasks_types)):
+        for i, (prompt, t_type, tool)  in enumerate(zip(prompts, tasks_types, tools)):
             if t_type == TaskType.completion.value:
-                yield i, self.complete(prompt, temperature, completions)
+                yield i, self.complete(prompt, temperature=temperature, completions=completions, tools=tool)
             else:
                 yield i, self.generate_text(prompt, medias[i], temperature, completions)
 
