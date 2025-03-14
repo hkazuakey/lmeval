@@ -17,6 +17,7 @@ from .scorer import Scorer
 
 from .dummy_scorer import Always1Scorer, Always0Scorer
 from .boolean_answer import BooleanAnswerScorer
+from .llm_rater import LLMRater
 from .multiple_choices import ContainAnswerLetterInsensitive, ContainAnswerLettersInsensitive
 from .exact_text import TextExactInsensitive, TextExactSensitive
 from .regex import TextSensitiveRegex, TextInsensitiveRegex
@@ -49,6 +50,9 @@ _SCORERS = {
 
     # safety
     ScorerType.punt_detector: PuntDetector,
+
+    # LLM autorater
+    ScorerType.llm_rater: LLMRater,
 }
 
 def get_scorer(scorer_type: ScorerType) -> Scorer:

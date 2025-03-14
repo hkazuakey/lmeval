@@ -53,7 +53,8 @@ class Question(CustomModel):
     multi_choices: str = Field(default="")
     letter_mapping: dict = Field(default_factory=dict,
                                  description="Keep track of which letter is associated with which answer")
-
+    original_letters: List[str] = Field(default_factory=list,
+                                        description="Keep track of the original letters for: [anwer] + additional_answers + choices")
 
     # cache template rendering keyed by prompt version to ensure consistency
     # accross model evaluations.

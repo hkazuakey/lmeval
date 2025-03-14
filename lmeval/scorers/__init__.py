@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from .scorer import Scorer
+from .llm_rater import LLMRater
 from .loader import get_scorer, list_scorers
 from .dummy_scorer import Always0Scorer, Always1Scorer
 from .boolean_answer import BooleanAnswerScorer
@@ -38,4 +39,5 @@ __all__ = [
     "ContainAnswerLetterInsensitive",
     "ContainAnswerLettersInsensitive",
     "PuntDetector",
+    "LLMRater",
 ]

@@ -24,14 +24,18 @@ from ..enums import ScorerType, Modality
 class Scorer(CustomModel):
     name: str = Field(default='')
     description: str = Field(default='')
-    type: ScorerType   # the enum type of the scorer used for serialization
-    modality: Modality # what type of answer this scorer is for e.g text or multimodal
+    type: ScorerType  # the enum type of the scorer used for serialization
+    modality: Modality  # what type of answer this scorer is for e.g text or multimodal
 
     # optional fields used only by specific scorers
     regex: str = Field(default='')
     model: LMModel | None = Field(default=None)
 
-    def _score(self, model_answer: LMAnswer, question: Question, task, debug: bool = False) -> float:
+    def _score(self,
+               model_answer: LMAnswer,
+               question: Question,
+               task,
+               debug: bool = False) -> float:
         "Function to be implemented by each scorer"
         raise NotImplementedError
 
@@ -41,9 +45,12 @@ class Scorer(CustomModel):
         notes:
          - if there is an error in the model answer, return -1.0 so we can filter it out
         """
-        # always return 0.0 if the model answer is an error
+        # always return -1 if the model answer is an error
         if model_answer.iserror:
-            return -1.0 # so we can filter
+            return -1.0  # so we can filter
+        # if punting, return 0
+        if model_answer.ispunting:
+            return 0.0
         return self._score(model_answer, question, task)
 
     def _cleanup(self, txt: str) -> str:
