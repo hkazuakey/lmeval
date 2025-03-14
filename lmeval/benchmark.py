@@ -518,6 +518,9 @@ def get_benchmarks_metadata(dir_name: str,
     "Return the metadata of benchmarks located in input directory"
     benchmark_paths = utils.match_files(dir_name, ".*[.]db$")
     rows = []
+    if not benchmark_paths:
+        log.error("No benchmarks found in %s", dir_name)
+        return rows
     for idx, path in enumerate(benchmark_paths):
         parent = utils.Path(path).parent.name
         # use default serializer if needed

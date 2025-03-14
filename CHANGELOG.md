@@ -5,7 +5,7 @@
 
 - Serialization function that had obsolete args
 - Update dependencies to fix errors with openai models
-
+- Fixed the `benchmark_list` function that was crashing when no benchmark was found
 
 ## [0.11.0] - 2025-02-15
 
