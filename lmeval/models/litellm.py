@@ -14,6 +14,7 @@
 
 from collections.abc import Generator
 import time
+import uuid
 import json
 import traceback
 from typing import Optional, Tuple
@@ -26,6 +27,7 @@ from .lmmodel import LMModel
 from .lmmodel import LMAnswer
 from ..media import Media
 from ..logger import log
+from ..question import GroupedQuestion
 
 
 def update_generation_kwargs(generation_kwargs: dict, update: dict) -> dict:
@@ -101,7 +103,7 @@ class LiteLLMModel(LMModel):
             batch_responses = [None for _ in prompts]
 
         for i, resp in enumerate(batch_responses):
-            answer = self._make_answer(resp, prompts[i])
+            answer = self._make_answer(resp, prompts[i])[0]
             yield i, answer
 
     def generate_text(self,
@@ -125,7 +127,7 @@ class LiteLLMModel(LMModel):
             print("Can't get response from model:", e)
             print(traceback.format_exc())
 
-        answer = self._make_answer(resp, prompt)
+        answer = self._make_answer(resp, prompt)[0]
         return answer
 
     def complete(
@@ -134,6 +136,7 @@ class LiteLLMModel(LMModel):
         temperature: float = 0.0,
         completions: int = 1,
         max_tokens: int = 4096,
+        return_first: bool = True,
         **generation_kwargs,
     ) -> LMAnswer:
         # FIXME: finish multi-completion support
@@ -152,8 +155,42 @@ class LiteLLMModel(LMModel):
             resp = None
             print("Can't get response from model:", traceback.format_exc())
 
-        answer = self._make_answer(resp)
-        return answer
+        answers = self._make_answer(resp)
+        if return_first:
+            return answers[0]
+        else:
+            return answers
+
+    def _make_grouped_answer(self, answers: list[LMAnswer]) -> LMAnswer:
+        is_error = any([a.iserror for a in answers])
+        error_reason = "".join([a.error_reason for a in answers])
+        total_tokens = sum([a.steps[0].total_tokens for a in answers])
+        completion_tokens = sum([a.steps[0].completion_tokens for a in answers])
+        total_time = sum([a.steps[0].execution_time for a in answers])
+        cost = sum([a.steps[0].cost for a in answers])
+        answer_id = str(uuid.uuid4())
+        grouped_answer = self._build_answer(text="",
+                                    generation_time=total_time,
+                                    iserror=is_error,
+                                    error_reason=error_reason,
+                                    total_tokens=total_tokens,
+                                    completion_tokens=completion_tokens,
+                                    cost=cost,
+                                    id=answer_id)
+        grouped_answer.answer_set = answers
+        return grouped_answer
+
+    def multi_complete(self, grouped_question: GroupedQuestion, temperature: float = 0.0,
+                       completions: int = 1, max_tokens: int = 4096, **generation_kwargs) -> LMAnswer:
+        n_completions = grouped_question.metadata['n_completions']
+        grouped_answers = []
+
+        for question in grouped_question.question_set:
+            answers = self.complete(question.messages, temperature, n_completions, 100, return_first=False, **generation_kwargs)
+            grouped_answers += answers
+        
+
+        return self._make_grouped_answer(grouped_answers)
 
     def _make_messages(
             self,
@@ -207,12 +244,12 @@ class LiteLLMModel(LMModel):
         if isinstance(resp, ModelResponse):
             response = resp
             response_id = resp.id
-
+            
             log.debug("response: %s", response)
             try:
-                raw_response = response.choices[0].message.content
-                tool_calls = response.choices[0].message.tool_calls
-                if raw_response is None and tool_calls is None:
+                answer_contents = [c.message.content for c in response.choices]
+                tool_calls = [c.message.tool_calls for c in response.choices]
+                if all(r is None and tc is None for r, tc in zip(answer_contents, tool_calls)):
                     raise ValueError("No response from model")
                 if raw_response is None and tool_calls is not None:
                     raw_response = ""
@@ -259,7 +296,7 @@ class LiteLLMModel(LMModel):
             iserror = True
             error_reason = "Not implemented"
 
-        answer = self._build_answer(text=raw_response,
+        answers = [self._build_answer(text=r,
                                     generation_time=total_time,
                                     iserror=iserror,
                                     error_reason=error_reason,

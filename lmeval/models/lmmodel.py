@@ -57,6 +57,10 @@ class LMModel(CustomModel):
                  completions: int = 1) -> LMAnswer:
         raise NotImplementedError
 
+    def multi_complete(self, question: "GroupedQuestion", temperature: float = 0.0,
+                       completions: int = 1) -> LMAnswer:
+        raise NotImplementedError
+
     def _build_answer(self, text: str, generation_time: float,
                        iserror: bool = False, error_reason: str = '',
                        total_tokens: int = 0, prompt_tokens: int = 0,
@@ -124,20 +128,19 @@ class LMModel(CustomModel):
         "convert an image to base64 to send to the model"
         return base64.b64encode(raw_img).decode('utf-8')
 
-    def batch_execute(self,
-                      prompts: list[str|list[dict]],
-                      medias: list[list[Media]],
-                      tasks_types: list[TaskType],
-                      tools: list[list[dict]],
-                      temperature: float = 0.0,
-                      completions: int = 1,
-                      ) -> Generator[Tuple[int, LMAnswer], None, None]:
+    def batch_execute(self, tasks: list["EvalTask"], temperature: float = 0.0,
+                      completions: int = 1) -> Generator[Tuple[int, LMAnswer], None, None]:
         """ Execute a batch of prompts in parallel."""
-        for i, (prompt, t_type, tool)  in enumerate(zip(prompts, tasks_types, tools)):
-            if t_type == TaskType.completion.value:
-                yield i, self.complete(prompt, temperature=temperature, completions=completions, tools=tool)
+        for i, etask in enumerate(tasks):
+            if etask.task.type == TaskType.completion.value:
+                yield i, self.complete(etask.messages, temperature, completions, tools=tools)
+            elif etask.task.type == TaskType.grouped_completion.value:
+                yield i, self.multi_complete(etask.question, temperature=temperature, completions=10)
             else:
-                yield i, self.generate_text(prompt, medias[i], temperature, completions)
+                # normalize medias
+                mds = etask.question.medias if etask.question.medias else []
+                mds = mds if isinstance(mds, list) else [mds]
+                yield i, self.generate_text(etask.instanciated_prompt, mds, temperature, completions)
 
     def batch_generate_text(
             self,
@@ -216,6 +219,9 @@ class LMAnswer(CustomModel):
     # model used
     model: LMModel
 
+    # set of answers when grouped completion is used
+    answer_set: list[LMAnswer] = Field(default_factory=list)
+
     text_prompt: str = Field(default='',
                              description="record the actual text prompt used")
 
@@ -227,3 +233,4 @@ class LMAnswer(CustomModel):
 
     def __str__(self) -> str:
         return str(f"{self.model.name}: {self.answer}")
+    

@@ -30,13 +30,13 @@ from lmeval import utils
 from lmeval.logger import log
 from lmeval.models import LMAnswer, LMModel
 from lmeval.scorers import PuntDetector
-from lmeval.question import Question
+from lmeval.question import GroupedQuestion, Question
 from lmeval.task import Task
-from lmeval.benchmark import Benchmark, Category, load_benchmark
+from lmeval.benchmark import Benchmark, load_benchmark
 from lmeval.prompts import Prompt
-from lmeval.custom_model import CustomModel
 from lmeval.callback import Callback
-from lmeval.enums import Modality, TaskType
+from lmeval.enums import TaskType
+from lmeval.evaluation_tasks import CompletionEvalTask, GroupedCompletionEvalTask, EvalTask
 
 # generic type
 P = TypeVar('P', bound='Prompt')
@@ -46,34 +46,6 @@ M = TypeVar('M', bound='LMModel')
 class AnswerStatus(Enum):
     existing = 0
     planned = 1
-
-class EvalTask(CustomModel): #  Generic[M, P]):
-    benchmark_name: str  # needed to propagate it to the models
-    question: Question
-    category: Category
-    task: Task
-    lm_model: LMModel  # model is reserved by pydantic, using lm_model
-    prompt: Prompt
-    instanciated_prompt: str = Field(default="")
-    punt_detector: Optional[PuntDetector] = None
-
-
-    # tracking evaluation status
-    lm_answer: Optional[LMAnswer] = None
-
-    # those are shorthand for the answer status that are copied from LMAnswer
-    score: float = Field(default=0.0)
-    punted: bool = Field(default=False)
-    error: bool = Field(default=False)
-
-    def __str__(self) -> str:
-        return f"{self.lm_model.version_string}:{self.prompt.name} {self.category.name} / {self.task.name} / {self.question.id}"
-
-
-class CompletionEvalTask(EvalTask):
-    messages: list[dict]
-    tools: list[dict] | None = None
-
 
 class Evaluator():
     """
@@ -190,8 +162,10 @@ class Evaluator():
                                     tools=question.tools,
                                     punt_detector=punt_detector,
                                 )
-                            else:
-                                evaltask = EvalTask(
+                            elif task.type == TaskType.grouped_completion.value:
+                                assert isinstance(question, GroupedQuestion), "Grouped completion tasks should have a GroupedQuestion"
+
+                                evaltask = GroupedCompletionEvalTask(
                                     benchmark_name=self.benchmark.name,
                                     question=question,
                                     category=category,
@@ -199,8 +173,8 @@ class Evaluator():
                                     lm_model=model,
                                     lm_answer=None,
                                     prompt=prompt,
-                                    instanciated_prompt=instanciated_prompt,
-                                    punt_detector=punt_detector)
+                                    punt_detector=punt_detector,
+                                )
 
                             # allows to cap the number of evaluations per task
                             if stats[category.name][
@@ -290,31 +264,14 @@ class Evaluator():
                 f"exec model: {model_name}, prompts: {len(etasks)}, medias: {len(etasks[0].question.medias)}"
             )
             num_executed = 0
-            prompts = []
-            medias = []
             model = etasks[0].lm_model
-            for etask in etasks:
-                t = self.prepare_task(etask)
-                if etask.task.type == TaskType.completion.value:
-                    prompts.append(t.messages)
-                else:
-                    prompts.append(t.instanciated_prompt)
-                # normalize medias
-                mds = t.question.medias if t.question.medias else []
-                mds = mds if isinstance(mds, list) else [mds]
-                medias.append(mds)
-            log.debug(
-                f"model: {model.name}, prompts: {len(prompts)}, medias: {len(medias)}"
-            )
+            etasks = [self.prepare_task(etask) for etask in etasks]
 
             score = 0.0  # live stats
             count = 0
             error = 0
             punt = 0
-            for index, answer in model.batch_execute(prompts=prompts,
-                                                     medias=medias,
-                                                     tasks_types=[etask.task.type for etask in etasks],
-                                                     tools=[etask.tools for etask in etasks]):
+            for index, answer in model.batch_execute(tasks=etasks):
                 assert answer is not None, f"Answer generation failed for model {model_name}"
                 log.debug(f"model:index: {model_name}, {index}")
                 log.debug(f"model:answer: {answer.answer}")
@@ -432,7 +389,9 @@ class Evaluator():
     @staticmethod
     def prepare_task(etask: EvalTask) -> EvalTask:
         """Prepares the prompt and other data for a given eval task."""
-        if isinstance(etask, CompletionEvalTask):
+        if isinstance(etask, GroupedCompletionEvalTask):
+            return etask
+        elif isinstance(etask, CompletionEvalTask):
             # Prepare messages for CompletionEvalTask
             if not etask.messages or len(etask.messages) == 0:
                 etask.messages = [
@@ -467,8 +426,9 @@ class Evaluator():
     @staticmethod
     def generate_answer(etask: EvalTask) -> EvalTask:
         """Generate an answer for a given eval task"""
-
-        if isinstance(etask, CompletionEvalTask):
+        if isinstance(etask, GroupedCompletionEvalTask):
+            return etask
+        elif isinstance(etask, CompletionEvalTask):
             # Prepare messages for CompletionEvalTask
             if not etask.messages or len(etask.messages) == 0:
                 etask.messages = [
