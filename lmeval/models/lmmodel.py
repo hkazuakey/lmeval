@@ -20,7 +20,7 @@ from typing import Any, Dict, Optional, Tuple
 from pydantic import Field
 import base64
 from ..custom_model import CustomModel
-from ..enums import Modality, ScorerType, StepType, MultiShotStrategy
+from ..enums import Modality, ScorerType, StepType, MultiShotStrategy, TaskType
 from ..media import Media
 
 
@@ -51,6 +51,10 @@ class LMModel(CustomModel):
                        medias: Optional[list[Media]] = None,
                        temperature: float = 0.0,
                        completions: int = 1) -> LMAnswer:
+        raise NotImplementedError
+
+    def complete(self, messages: list[dict], temperature: float = 0.0,
+                 completions: int = 1) -> LMAnswer:
         raise NotImplementedError
 
     def _build_answer(self, text: str, generation_time: float,
@@ -120,6 +124,21 @@ class LMModel(CustomModel):
         "convert an image to base64 to send to the model"
         return base64.b64encode(raw_img).decode('utf-8')
 
+    def batch_execute(self,
+                      prompts: list[str|list[dict]],
+                      medias: list[list[Media]],
+                      tasks_types: list[TaskType],
+                      tools: list[list[dict]],
+                      temperature: float = 0.0,
+                      completions: int = 1,
+                      ) -> Generator[Tuple[int, LMAnswer], None, None]:
+        """ Execute a batch of prompts in parallel."""
+        for i, (prompt, t_type, tool)  in enumerate(zip(prompts, tasks_types, tools)):
+            if t_type == TaskType.completion.value:
+                yield i, self.complete(prompt, temperature=temperature, completions=completions, tools=tool)
+            else:
+                yield i, self.generate_text(prompt, medias[i], temperature, completions)
+
     def batch_generate_text(
             self,
             prompts: list[str],
@@ -188,7 +207,8 @@ class LMAnswer(CustomModel):
 
     # scorer
     score: float = Field(default=0.0)
-    additional_scores: Dict[ScorerType, float] = Field(default={})
+    additional_scores: Dict[ScorerType | str, float] = Field(default={})
+    score_raw_data: Dict[str, Any] = Field(default={})
 
     # executions steps
     steps: list[Step] = Field(default=[])
