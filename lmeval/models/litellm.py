@@ -138,7 +138,7 @@ class LiteLLMModel(LMModel):
         max_tokens: int = 4096,
         return_first: bool = True,
         **generation_kwargs,
-    ) -> LMAnswer:
+    ) -> LMAnswer | list[LMAnswer]:
         # FIXME: finish multi-completion support
         try:
             arguments = dict(
@@ -169,6 +169,7 @@ class LiteLLMModel(LMModel):
         total_time = sum([a.steps[0].execution_time for a in answers])
         cost = sum([a.steps[0].cost for a in answers])
         answer_id = str(uuid.uuid4())
+        print(f"Length of answers: {len(answers)}")
         grouped_answer = self._build_answer(text="",
                                     generation_time=total_time,
                                     iserror=is_error,
@@ -235,15 +236,13 @@ class LiteLLMModel(LMModel):
                      prompt: str = "") -> LMAnswer:
         iserror = False
         error_reason = ""
-        raw_response = ""
+
         cost = total_tokens = prompt_tokens = completion_tokens = 0
         total_time = 0
         model_name = self.runtime_vars['litellm_version_string']
-        response_id = ""
 
         if isinstance(resp, ModelResponse):
             response = resp
-            response_id = resp.id
             
             log.debug("response: %s", response)
             try:
@@ -285,7 +284,7 @@ class LiteLLMModel(LMModel):
             else:
                 iserror = True
                 error_reason = f'{resp}'
-                raw_response = ''
+                raw_responses = []
         elif isinstance(resp, Exception):
             iserror = True
             error_reason = repr(resp)
@@ -369,6 +368,7 @@ class LiteLLMModel(LMModel):
             messages = self._replace_system_messages(messages)
             messages = self._merge_messages_by_role(messages)
 
+        print("Temperature: ", temperature)
         resp = completion(model=model,
                           messages=messages,
                           temperature=temperature,
