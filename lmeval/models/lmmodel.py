@@ -222,5 +222,8 @@ class LMAnswer(CustomModel):
     additional_data: dict = Field(default_factory=dict,
                                   description="Additional data that are question dependent")
 
+    raw_response: dict = Field(default={},
+                               description="Raw response from the model")
+
     def __str__(self) -> str:
         return str(f"{self.model.name}: {self.answer}")

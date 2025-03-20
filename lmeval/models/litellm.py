@@ -215,11 +215,7 @@ class LiteLLMModel(LMModel):
                 if raw_response is None and tool_calls is None:
                     raise ValueError("No response from model")
                 if raw_response is None and tool_calls is not None:
-                    tool_call = {
-                        "name": tool_calls[0].function.name,
-                        "arguments": json.loads(tool_calls[0].function.arguments)
-                    }
-                    raw_response = json.dumps(tool_call)
+                    raw_response = ""
 
             except Exception as e:
                 try:
@@ -274,6 +270,7 @@ class LiteLLMModel(LMModel):
                                     isunsafe=self.isunsafe,
                                     prompt=prompt,
                                     id=response_id)
+        answer.raw_response = response
         return answer
 
     def _batch_completion(self,
