@@ -270,7 +270,7 @@ class LiteLLMModel(LMModel):
                                     isunsafe=self.isunsafe,
                                     prompt=prompt,
                                     id=response_id)
-        answer.raw_response = response
+        answer.raw_response = response.model_dump()
         return answer
 
     def _batch_completion(self,
