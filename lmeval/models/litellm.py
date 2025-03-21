@@ -136,7 +136,6 @@ class LiteLLMModel(LMModel):
         temperature: float = 0.0,
         completions: int = 1,
         max_tokens: int = 4096,
-        return_first: bool = True,
         **generation_kwargs,
     ) -> LMAnswer | list[LMAnswer]:
         # FIXME: finish multi-completion support
@@ -155,11 +154,8 @@ class LiteLLMModel(LMModel):
             resp = None
             print("Can't get response from model:", traceback.format_exc())
 
-        answers = self._make_answer(resp)
-        if return_first:
-            return answers[0]
-        else:
-            return answers
+        answer = self._make_answer(resp)
+        return answer
 
     def _make_grouped_answer(self, answers: list[LMAnswer]) -> LMAnswer:
         is_error = any([a.iserror for a in answers])
@@ -183,12 +179,13 @@ class LiteLLMModel(LMModel):
 
     def multi_complete(self, grouped_question: GroupedQuestion, temperature: float = 0.0,
                        completions: int = 1, max_tokens: int = 4096, **generation_kwargs) -> LMAnswer:
-        n_completions = grouped_question.metadata['n_completions']
+        n_completions = grouped_question.metadata.get('n_completions', 1)
+        temperature = grouped_question.metadata.get('temperature', None)
         grouped_answers = []
 
         for question in grouped_question.question_set:
-            answers = self.complete(question.messages, temperature, n_completions, 100, return_first=False, **generation_kwargs)
-            grouped_answers += answers
+            answer = self.complete(question.messages, temperature, n_completions, max_tokens, **generation_kwargs)
+            grouped_answers.append(answer)
         
 
         return self._make_grouped_answer(grouped_answers)
@@ -236,22 +233,28 @@ class LiteLLMModel(LMModel):
                      prompt: str = "") -> LMAnswer:
         iserror = False
         error_reason = ""
-
+        raw_response = ""
         cost = total_tokens = prompt_tokens = completion_tokens = 0
         total_time = 0
         model_name = self.runtime_vars['litellm_version_string']
+        response_id = ""
 
         if isinstance(resp, ModelResponse):
             response = resp
+            response_id = resp.id
             
             log.debug("response: %s", response)
             try:
                 answer_contents = [c.message.content for c in response.choices]
                 tool_calls = [c.message.tool_calls for c in response.choices]
+
                 if all(r is None and tc is None for r, tc in zip(answer_contents, tool_calls)):
                     raise ValueError("No response from model")
-                if raw_response is None and tool_calls is not None:
-                    raw_response = ""
+                
+                for answer in answer_contents:
+                    if answer is not None:
+                        raw_response = answer
+                        break
 
             except Exception as e:
                 try:
@@ -284,7 +287,7 @@ class LiteLLMModel(LMModel):
             else:
                 iserror = True
                 error_reason = f'{resp}'
-                raw_responses = []
+
         elif isinstance(resp, Exception):
             iserror = True
             error_reason = repr(resp)
@@ -295,7 +298,7 @@ class LiteLLMModel(LMModel):
             iserror = True
             error_reason = "Not implemented"
 
-        answers = [self._build_answer(text=r,
+        answer = self._build_answer(text=raw_response,
                                     generation_time=total_time,
                                     iserror=iserror,
                                     error_reason=error_reason,
@@ -306,7 +309,8 @@ class LiteLLMModel(LMModel):
                                     isunsafe=self.isunsafe,
                                     prompt=prompt,
                                     id=response_id)
-        answer.raw_response = response.model_dump()
+        if isinstance(resp, ModelResponse):
+            answer.raw_response = resp.model_dump()
         return answer
 
     def _batch_completion(self,
@@ -368,7 +372,6 @@ class LiteLLMModel(LMModel):
             messages = self._replace_system_messages(messages)
             messages = self._merge_messages_by_role(messages)
 
-        print("Temperature: ", temperature)
         resp = completion(model=model,
                           messages=messages,
                           temperature=temperature,

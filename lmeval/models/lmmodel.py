@@ -133,7 +133,7 @@ class LMModel(CustomModel):
         """ Execute a batch of prompts in parallel."""
         for i, etask in enumerate(tasks):
             if etask.task.type == TaskType.completion.value:
-                yield i, self.complete(etask.messages, temperature, completions, tools=tools)
+                yield i, self.complete(etask.messages, temperature, completions, tools=etask.question.tools)
             elif etask.task.type == TaskType.grouped_completion.value:
                 yield i, self.multi_complete(etask.question, temperature=temperature, completions=10)
             else:
