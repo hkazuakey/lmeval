@@ -15,7 +15,7 @@
 from .task import Task
 from .benchmark import Benchmark, Category, load_benchmark, list_benchmarks
 from .benchmark import get_benchmark_fileinfo, list_benchmark_fileinfo
-from .question import Question, QuestionSource
+from .question import Question, QuestionSource, GroupedQuestion
 from .media import Media
 from .models import LMModel, LMAnswer
 from .enums import TaskType, TaskLevel, FileType, Modality, ScorerType
@@ -41,6 +41,7 @@ __all__ = [
 
     # questions
     "Question",
+    "GroupedQuestion",
     "QuestionSource",
 
     # media

@@ -120,3 +120,7 @@ class Question(CustomModel):
         h = blake2b(digest_size=digest_size)
         h.update(path.read_bytes())
         return h.hexdigest()
+    
+class GroupedQuestion(Question):
+    metadata: Dict[str, Any]
+    question_set: List[Question] 
