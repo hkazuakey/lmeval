@@ -34,7 +34,8 @@ class SQLiteArchive(Archive):
     and can be configured to use temporary files for increased safety.
     """
 
-    def __init__(self, path,
+    def __init__(self,
+                 path,
                  compression_level: int = -1,
                  keyfname: str = 'key',
                  use_tempfile: bool | None = None,
@@ -46,11 +47,16 @@ class SQLiteArchive(Archive):
             with self.conn:  # Use context manager for connection
                 self._create_table_and_index()
         except sqlite3.OperationalError as e:
-            raise ValueError( f"Error opening or initializing SQLite archive at {self.path}: {e}") from e
+            raise ValueError(
+                f"Error opening or initializing SQLite archive at {self.path}: {e}"
+            ) from e
 
         self.compression_level = compression_level
         self.keyfname = keyfname
         self.key = ""
+
+    def __del__(self):
+        self.close()
 
     def _init_paths_and_temp_dir(self, path, use_tempfile, restore):
         """Initializes paths and temporary directory based on configuration."""
@@ -63,7 +69,8 @@ class SQLiteArchive(Archive):
             self.real_path = path
             p = utils.Path(self.real_path)
             if restore and p.exists():
-                utils.recursively_copy_dir(self.real_path, self.path,
+                utils.recursively_copy_dir(self.real_path,
+                                           self.path,
                                            overwrite=True)
         else:
             self.path = path
@@ -80,7 +87,8 @@ class SQLiteArchive(Archive):
         """Creates the files table and index if they don't exist."""
         # Check if the table already exists
         self.cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='files'")
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='files'"
+        )
         table_exists = self.cursor.fetchone() is not None
 
         if not table_exists:
@@ -119,8 +127,12 @@ class SQLiteArchive(Archive):
             if self.temp_dir is not None:
                 self.temp_dir.cleanup()
 
-    def write(self, name: str, data: bytes | str, encrypted: bool,
-              compress: bool = True, file_type: str = "",
+    def write(self,
+              name: str,
+              data: bytes | str,
+              encrypted: bool,
+              compress: bool = True,
+              file_type: str = "",
               modality: str = ""):
         if isinstance(data, str):
             data = data.encode("utf-8")
@@ -140,8 +152,9 @@ class SQLiteArchive(Archive):
             with self.conn:  # Use context manager for transaction
                 self.cursor.execute(
                     "INSERT INTO files (name, data, size, encrypted, compressed, update_time, hash, filetype, modality) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (name, compressed_data,  size, encrypted, compress,
+                    (name, compressed_data, size, encrypted, compress,
                      int(time.time()), file_hash, file_type, modality))
+                self.conn.commit()
         except sqlite3.IntegrityError:
             # Handle the case where the file name already exists (unique constraint)
             logger.warning(
@@ -149,14 +162,15 @@ class SQLiteArchive(Archive):
             with self.conn:  # Use context manager for transaction
                 self.cursor.execute(
                     "UPDATE files SET data = ?, size= ?, encrypted = ?, compressed = ?, update_time = ?, hash = ?, filetype = ?, modality = ? WHERE name = ?",
-                    (compressed_data, size, encrypted, compress, int(time.time()),
-                     file_hash, file_type, modality, name))
+                    (compressed_data, size, encrypted, compress,
+                     int(time.time()), file_hash, file_type, modality, name))
+                self.conn.commit()
 
     def read(self, name: str) -> bytes | str:
         with self.conn:
             self.cursor.execute(
                 "SELECT data, encrypted, compressed FROM files WHERE name = ?",
-                (name,))
+                (name, ))
             row = self.cursor.fetchone()
 
         if row is None:
@@ -176,12 +190,20 @@ class SQLiteArchive(Archive):
         "Return the list of files alongside their metadata"
         files = []
         with self.conn:
-            self.cursor.execute("SELECT id, name, size, encrypted, compressed, update_time, hash, filetype, modality FROM files")
+            self.cursor.execute(
+                "SELECT id, name, size, encrypted, compressed, update_time, hash, filetype, modality FROM files"
+            )
             for row in self.cursor.fetchall():
                 id, name, size, encrypted, compressed, update_time, hash, filetype, modality = row
                 finfo = FileInfo(id=id,
-                         name=name, size=size, compressed=compressed, encrypted=encrypted, update_time=update_time, hash=hash,
-                         filetype=filetype, modality=modality)
+                                 name=name,
+                                 size=size,
+                                 compressed=compressed,
+                                 encrypted=encrypted,
+                                 update_time=update_time,
+                                 hash=hash,
+                                 filetype=filetype,
+                                 modality=modality)
 
                 files.append(finfo)
         return files
@@ -198,15 +220,19 @@ class SQLiteArchive(Archive):
         else:
             # If the key is not in the archive, write it
             if not self.KEYSET_STR:
-                raise ValueError("No key found in archive and self.KEYSET_STR is not set")
+                raise ValueError(
+                    "No key found in archive and self.KEYSET_STR is not set")
 
             key = self.KEYSET_STR
-            self.write(self.keyfname, key, encrypted=False, compress=True, file_type="json", modality="data")
+            self.write(self.keyfname,
+                       key,
+                       encrypted=False,
+                       compress=True,
+                       file_type="json",
+                       modality="data")
             self.key = key
 
         return self.key
-
-
 
         return self.key
 
@@ -217,6 +243,7 @@ class SQLiteArchive(Archive):
             p = utils.Path(self.real_path)
             if not p.exists():
                 p.mkdir(parents=True)
-            utils.recursively_copy_dir(self.path, self.real_path,
-                                       overwrite=True, backup=True)
-
+            utils.recursively_copy_dir(self.path,
+                                       self.real_path,
+                                       overwrite=True,
+                                       backup=True)
