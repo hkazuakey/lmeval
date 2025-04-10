@@ -334,7 +334,6 @@ class Benchmark(CustomModel):
                     "answers": 0,
                     "prompts": 0,
                     "punts": 0,
-                    "errors": 0,
                 }
 
                 for question in task.questions:
@@ -361,7 +360,6 @@ class Benchmark(CustomModel):
                                 "score": 0,
                                 "punts": 0,
                                 "models": len(data),
-                                "errors": 0
                             }
 
                         task_stats[category.name][task.name]['models'] += len(
@@ -372,32 +370,24 @@ class Benchmark(CustomModel):
                             prompt_stats[prompt_version]['score'] += resp.score
                             prompt_stats[prompt_version][
                                 'punts'] += resp.ispunting
-                            prompt_stats[prompt_version][
-                                'errors'] += resp.iserror
 
                             if model_version not in models_stats:
                                 models_stats[model_version] = {
                                     "answers": 0,
                                     "score": 0,
                                     "punts": 0,
-                                    "errors": 0,
                                 }
 
                             models_stats[model_version]['answers'] += 1
                             models_stats[model_version]['score'] += resp.score
                             models_stats[model_version][
                                 'punts'] += resp.ispunting
-                            models_stats[model_version][
-                                'errors'] += resp.iserror
                             category_cnts['punts'] += resp.ispunting
-                            category_cnts['errors'] += resp.iserror
 
                             task_stats[category.name][
                                 task.name]['answers'] += 1
                             task_stats[category.name][
                                 task.name]['punts'] += resp.ispunting
-                            task_stats[category.name][
-                                task.name]['errors'] += resp.iserror
 
             categories_stats[category.name] = {
                 "tasks": len(category.tasks),
@@ -409,7 +399,6 @@ class Benchmark(CustomModel):
                 'images': category_cnts['images'],
                 'audio': category_cnts['audio'],
                 'video': category_cnts['video'],
-                "errors": category_cnts['errors'],
             }
             num_answers += cat_answers
 
@@ -435,8 +424,8 @@ class Benchmark(CustomModel):
         print("\n[Questions Stats]")
         rows = []
         for cat_name, tdata in stats['tasks_stats'].items():
-            if rows:
-                rows.append(["", "", "", "", "", "", "", "", ""])
+            if len(rows):
+                rows.append(["", "", "", "", "", "", "", ""])
 
             k = f"{cat_name}"
             rows.append([
@@ -444,8 +433,7 @@ class Benchmark(CustomModel):
                 '', '', '', stats['categories_stats'][cat_name]['prompts'],
                 stats['categories_stats'][cat_name]['models'],
                 stats['categories_stats'][cat_name]['answers'],
-                stats['categories_stats'][cat_name]['punts'],
-                stats['categories_stats'][cat_name]['errors']
+                stats['categories_stats'][cat_name]['punts']
             ])
 
             for task_name, c in tdata.items():
@@ -453,24 +441,24 @@ class Benchmark(CustomModel):
                 rows.append([
                     k, c['type'], c['level'], c['questions'], c['images'],
                     c['audio'], c['video'], c['prompts'], c['models'],
-                    c['answers'], c['punts'], c['errors']
+                    c['answers'], c['punts']
                 ])
         print(
             tabulate(rows,
                      headers=[
                          "", "Type", "Level", "Questions", "Images", "Audios",
-                         "Videos", "Prompts", "Models", "Answers", "Punts", "Errors"
+                         "Videos", "Prompts", "Models", "Answers", "Punts"
                      ]))
 
         if stats['answers']:
             print("\n[Answers Stats]")
-            rows = [[k, v['answers'], v['score'] / v['answers'], v['punts'], v['errors'], v['errors'] / v['answers']]
+            rows = [[k, v['answers'], v['score'] / v['answers'], v['punts']]
                     for k, v in stats['models_stats'].items()]
             print(
                 tabulate(
                     rows,
                     headers=["Model", "Num Answers", "Avg Score",
-                             "Num Punts", "Avg Error"]))
+                             "Num Punts"]))
 
 
 def get_benchmark_fileinfo(path: str) -> list[FileInfo]:
@@ -550,17 +538,9 @@ def get_benchmarks_metadata(dir_name: str,
                 models = len(stats['models_stats'])
                 answers = stats['answers']
 
-        row = {
-            'id': idx,
-            'name': name,
-            "version": version,
-            'parent_dir': parent,
-            'categories': categories,
-            'questions': questions,
-            'models': models,
-            'answers': answers,
-            'path': path
-        }
+        row = {'id': idx, 'name': name, "version": version, 'parent_dir': parent,
+               'categories': categories, 'questions': questions, 'models': models,
+               'answers': answers, 'path': path}
 
         rows.append(row)
 
@@ -570,6 +550,7 @@ def get_benchmarks_metadata(dir_name: str,
 
 def list_benchmarks(dir_name: str, use_tempfile: bool | None = None) -> List[str]:
     "List all benchmarks"
-    benchs_data = get_benchmarks_metadata(dir_name, debug=False, use_tempfile=use_tempfile)
+    benchs_data = get_benchmarks_metadata(dir_name, debug=False,
+                                          use_tempfile=use_tempfile)
     benchmark_paths = [b['path'] for b in benchs_data]
     return benchmark_paths
