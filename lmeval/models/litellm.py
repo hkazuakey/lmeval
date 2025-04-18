@@ -358,12 +358,15 @@ class LiteLLMModel(LMModel):
                 generation_kwargs, self.runtime_vars["generation_kwargs"]
             )
         
-        use_provider_tools_format = False
+        completion_has_tool_description = False
         if "tools" in generation_kwargs and generation_kwargs["tools"] is not None:
             assert len(generation_kwargs["tools"]) > 0, "tools should not be empty"
-            use_provider_tools_format = True
+            completion_has_tool_description = True
 
-        if not litellm.supports_function_calling(model) and use_provider_tools_format:
+        supports_tools_calling = self.runtime_vars.get("supports_tools", False)
+
+        
+        if not supports_tools_calling and completion_has_tool_description:
             litellm.add_function_to_prompt = True
             tools_definition = generation_kwargs.pop("tools")
             generation_kwargs["functions_unsupported_model"] = tools_definition
