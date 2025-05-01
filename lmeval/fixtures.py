@@ -11,14 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import os
 import random
 import pytest
-import os
+from typing import Dict, Union, Any
+
 from dotenv import load_dotenv
 from lmeval.models import lmmodel
 from lmeval.models import mock_model
-from typing import Dict, Union, Any
+from lmeval.models.lmmodel import LMModel
+from lmeval.models.gemini import GeminiModel
+from lmeval.models.litellm import proxy_make_model
+
 
 eu_countries = [
     ("Germany", "Berlin"),
@@ -112,9 +116,30 @@ def get_country_multi_choice(num_choices: int = 4) -> Dict[str, Any]:
 
 @pytest.fixture
 def gemini_mock() -> lmmodel.LMModel:
-  return mock_model.MockGeminiModel(model_version="gemini-1.5-flash-001")
+    return mock_model.MockGeminiModel(model_version="gemini-1.5-flash-001")
 
 
 @pytest.fixture
 def gemini_pro15_mock() -> lmmodel.LMModel:
-  return mock_model.MockGeminiModel(model_version="gemini-1.5-pro-001")
+    return mock_model.MockGeminiModel(model_version="gemini-1.5-pro-001")
+
+@pytest.fixture
+def gemini() -> LMModel:
+    "Gemini model fixture"
+    # try proxy first
+    model = proxy_make_model()
+    if not model:
+        load_dotenv()  # take environment variables from .env.
+        GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+        model = GeminiModel(api_key=GEMINI_API_KEY)
+    return model
+
+@pytest.fixture
+def gemini_pro15() -> LMModel:
+    "Gemini model fixture"
+    model = proxy_make_model(model='gemini/gemini-1.5-pro-002')
+    if not model:
+        load_dotenv()  # take environment variables from .env.
+        GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+        model = GeminiModel(api_key=GEMINI_API_KEY, model_version="gemini-1.5-pro")
+    return model

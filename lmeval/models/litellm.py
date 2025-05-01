@@ -13,16 +13,18 @@
 # limitations under the License.
 
 from collections.abc import Generator
+import os
 import time
 import uuid
 import json
 import traceback
 from typing import Optional, Tuple
+from dotenv import load_dotenv
 import litellm
 from litellm import completion, completion_cost, batch_completion
 from litellm import ModelResponse, CustomStreamWrapper
 
-from ..enums import Modality
+from ..enums import FileType, Modality
 from .lmmodel import LMModel
 from .lmmodel import LMAnswer
 from ..media import Media
@@ -35,6 +37,31 @@ def update_generation_kwargs(generation_kwargs: dict, update: dict) -> dict:
         if key not in generation_kwargs:
             generation_kwargs[key] = value
     return generation_kwargs
+
+
+def proxy_make_model(model='gemini/gemini-2.0-flash-001',
+                     proxy=None,
+                     proxy_key=None,
+                     max_workers=1):
+    """Factory method for creating a model via llmproxy."""
+    if not proxy or not proxy_key:
+        load_dotenv()
+    if not proxy_key:
+        proxy_key = os.getenv('LITELLM_PROXY_KEY', '')
+    if not proxy_key:
+        log.error('Missing llm proxy key')
+        return None
+    if not proxy:
+        proxy = os.getenv('LITELLM_PROXY', '')
+    if not proxy:
+        log.error('Missing proxy address')
+        return None
+    return LiteLLMModel(model_version=model,
+                        litellm_model=f'litellm_proxy/{model}',
+                        publisher=model.split('/', maxsplit=1)[0],
+                        base_url=proxy,
+                        api_key=proxy_key,
+                        max_workers=max_workers)
 
 
 class LiteLLMModel(LMModel):
@@ -103,7 +130,7 @@ class LiteLLMModel(LMModel):
             batch_responses = [None for _ in prompts]
 
         for i, resp in enumerate(batch_responses):
-            answer = self._make_answer(resp, prompts[i])[0]
+            answer = self._make_answer(resp, prompts[i])
             yield i, answer
 
     def generate_text(self,
@@ -127,7 +154,7 @@ class LiteLLMModel(LMModel):
             print("Can't get response from model:", e)
             print(traceback.format_exc())
 
-        answer = self._make_answer(resp, prompt)[0]
+        answer = self._make_answer(resp, prompt)
         return answer
 
     def complete(
@@ -137,7 +164,7 @@ class LiteLLMModel(LMModel):
         completions: int = 1,
         max_tokens: int = 4096,
         **generation_kwargs,
-    ) -> LMAnswer | list[LMAnswer]:
+    ) -> LMAnswer:
         # FIXME: finish multi-completion support
         try:
             arguments = dict(
@@ -161,32 +188,39 @@ class LiteLLMModel(LMModel):
         is_error = any([a.iserror for a in answers])
         error_reason = "".join([a.error_reason for a in answers])
         total_tokens = sum([a.steps[0].total_tokens for a in answers])
-        completion_tokens = sum([a.steps[0].completion_tokens for a in answers])
+        completion_tokens = sum(
+            [a.steps[0].completion_tokens for a in answers])
         total_time = sum([a.steps[0].execution_time for a in answers])
         cost = sum([a.steps[0].cost for a in answers])
         answer_id = str(uuid.uuid4())
         print(f"Length of answers: {len(answers)}")
-        grouped_answer = self._build_answer(text="",
-                                    generation_time=total_time,
-                                    iserror=is_error,
-                                    error_reason=error_reason,
-                                    total_tokens=total_tokens,
-                                    completion_tokens=completion_tokens,
-                                    cost=cost,
-                                    id=answer_id)
+        grouped_answer = self._build_answer(
+            text="",
+            generation_time=total_time,
+            iserror=is_error,
+            error_reason=error_reason,
+            total_tokens=total_tokens,
+            completion_tokens=completion_tokens,
+            cost=cost,
+            id=answer_id)
         grouped_answer.answer_set = answers
         return grouped_answer
 
-    def multi_complete(self, grouped_question: GroupedQuestion, temperature: float = 0.0,
-                       completions: int = 1, max_tokens: int = 4096, **generation_kwargs) -> LMAnswer:
+    def multi_complete(self,
+                       grouped_question: GroupedQuestion,
+                       temperature: float = 0.0,
+                       completions: int = 1,
+                       max_tokens: int = 4096,
+                       **generation_kwargs) -> LMAnswer:
         n_completions = grouped_question.metadata.get('n_completions', 1)
         temperature = grouped_question.metadata.get('temperature', None)
         grouped_answers = []
 
         for question in grouped_question.question_set:
-            answer = self.complete(question.messages, temperature, n_completions, max_tokens, **generation_kwargs)
+            answer = self.complete(question.messages, temperature,
+                                   n_completions, max_tokens,
+                                   **generation_kwargs)
             grouped_answers.append(answer)
-        
 
         return self._make_grouped_answer(grouped_answers)
 
@@ -211,7 +245,7 @@ class LiteLLMModel(LMModel):
                 # image
                 if media.modality == Modality.image.value:
                     # FIXME use llmlite
-                    image_base64 = self._img2base64(media.content)
+                    image_base64 = self._blob2base64(media.content)
                     content.append({
                         "type": "image_url",
                         "image_url": {
@@ -219,7 +253,15 @@ class LiteLLMModel(LMModel):
                             f"data:image/{media.filetype};base64,{image_base64}"
                         }
                     })
-
+                elif media.filetype == FileType.pdf:
+                    pdf_base64 = self._blob2base64(media.content)
+                    content.append({
+                        "type": "file",
+                        "file": {
+                            "file_data":
+                            f"data:application/pdf;base64,{pdf_base64}"
+                        }
+                    })
             # text prompt
             content.append({"type": "text", "text": prompt})
             return [{"role": "user", "content": content}]
@@ -234,7 +276,10 @@ class LiteLLMModel(LMModel):
         iserror = False
         error_reason = ""
         raw_response = ""
-        cost = total_tokens = prompt_tokens = completion_tokens = 0
+        cost = 0
+        total_tokens = 0
+        prompt_tokens = 0
+        completion_tokens = 0
         total_time = 0
         model_name = self.runtime_vars['litellm_version_string']
         response_id = ""
@@ -242,15 +287,16 @@ class LiteLLMModel(LMModel):
         if isinstance(resp, ModelResponse):
             response = resp
             response_id = resp.id
-            
-            log.debug("response: %s", response)
+
+            log.info("response: %s", response)
             try:
                 answer_contents = [c.message.content for c in response.choices]
                 tool_calls = [c.message.tool_calls for c in response.choices]
 
-                if all(r is None and tc is None for r, tc in zip(answer_contents, tool_calls)):
+                if all(r is None and tc is None
+                       for r, tc in zip(answer_contents, tool_calls)):
                     raise ValueError("No response from model")
-                
+
                 for answer in answer_contents:
                     if answer is not None:
                         raw_response = answer
@@ -325,12 +371,18 @@ class LiteLLMModel(LMModel):
         if "generation_kwargs" in self.runtime_vars:
             # do not override the generation_kwargs passed as parameter
             generation_kwargs = update_generation_kwargs(
-                generation_kwargs, self.runtime_vars["generation_kwargs"]
-            )
+                generation_kwargs, self.runtime_vars["generation_kwargs"])
 
-        if "supports_system_prompt" in self.runtime_vars and not self.runtime_vars["supports_system_prompt"]:
-            messages_batch = [self._replace_system_messages(messages) for messages in messages_batch]
-            messages_batch = [self._merge_messages_by_role(messages) for messages in messages_batch]
+        if "supports_system_prompt" in self.runtime_vars and not self.runtime_vars[
+                "supports_system_prompt"]:
+            messages_batch = [
+                self._replace_system_messages(messages)
+                for messages in messages_batch
+            ]
+            messages_batch = [
+                self._merge_messages_by_role(messages)
+                for messages in messages_batch
+            ]
 
         batch_responses = batch_completion(
             model=model,
@@ -355,23 +407,24 @@ class LiteLLMModel(LMModel):
         if "generation_kwargs" in self.runtime_vars:
             # do not override the generation_kwargs passed as parameter
             generation_kwargs = update_generation_kwargs(
-                generation_kwargs, self.runtime_vars["generation_kwargs"]
-            )
-        
+                generation_kwargs, self.runtime_vars["generation_kwargs"])
+
         completion_has_tool_description = False
-        if "tools" in generation_kwargs and generation_kwargs["tools"] is not None:
-            assert len(generation_kwargs["tools"]) > 0, "tools should not be empty"
+        if "tools" in generation_kwargs and generation_kwargs[
+                "tools"] is not None:
+            assert len(
+                generation_kwargs["tools"]) > 0, "tools should not be empty"
             completion_has_tool_description = True
 
         supports_tools_calling = self.runtime_vars.get("supports_tools", False)
 
-        
         if not supports_tools_calling and completion_has_tool_description:
             litellm.add_function_to_prompt = True
             tools_definition = generation_kwargs.pop("tools")
             generation_kwargs["functions_unsupported_model"] = tools_definition
-            
-        if "supports_system_prompt" in self.runtime_vars and not self.runtime_vars["supports_system_prompt"]:
+
+        if "supports_system_prompt" in self.runtime_vars and not self.runtime_vars[
+                "supports_system_prompt"]:
             messages = self._replace_system_messages(messages)
             messages = self._merge_messages_by_role(messages)
 
@@ -401,10 +454,16 @@ class LiteLLMModel(LMModel):
             if m["role"] == current_role:
                 current_content += "\n\n" + m["content"]
             else:
-                messages_merged.append({"role": current_role, "content": current_content})
+                messages_merged.append({
+                    "role": current_role,
+                    "content": current_content
+                })
                 current_role = m["role"]
                 current_content = m["content"]
-        messages_merged.append({"role": current_role, "content": current_content})
+        messages_merged.append({
+            "role": current_role,
+            "content": current_content
+        })
         return messages_merged
 
     def _make_headers(self) -> dict[str, str]:

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import sys
 
 from lmeval import LMModel
 from lmeval import Evaluator
@@ -94,8 +95,12 @@ def text_only_task(model: LMModel,
     category = Category(name=category_name, description='European geography questions')
     task = Task(name='geo', type=TaskType.text_generation, scorer=scorer)
     qst = Question(id=question_id, question=question, answer=answer)
-    task = EvalTask(task=task, category=category, question=qst,
-                    prompt=prompt, lm_model=model)
+    task = EvalTask(benchmark_name='Test',
+                    task=task,
+                    category=category,
+                    question=qst,
+                    prompt=prompt,
+                    lm_model=model)
 
     return task
 
@@ -110,7 +115,8 @@ def text_img_task(model: LMModel) -> EvalTask:
     category_name = 'animal'
     category = Category(name=category_name, description='cat questions')
     task = Task(name='image', type=TaskType.text_generation, scorer=scorer)
-    question = Question(id=0, question='what is the animal in the photo?',
+    question = Question(id=0,
+                        question='what is the animal in the photo?',
                         answer='cat')
 
     # add images
@@ -118,8 +124,38 @@ def text_img_task(model: LMModel) -> EvalTask:
     image_path = os.path.join(current_dir, 'data/cat.jpg')
     question.add_media(image_path)
 
-    task = EvalTask(task=task, category=category, question=question,
-                    prompt=prompt, lm_model=model)
+    task = EvalTask(benchmark_name='Test',
+                    task=task,
+                    category=category,
+                    question=question,
+                    prompt=prompt,
+                    lm_model=model)
+    return task
+
+def text_pdf_task(model: LMModel) -> EvalTask:
+    "return a task witn a single question that have text and pdf"
+    # prompt
+    prompt = SingleWordAnswerPrompt()
+
+    # create task
+    scorer = get_scorer(ScorerType.contain_text_insensitive)
+    category_name = 'document'
+    category = Category(name=category_name, description='pdf questions')
+    task = Task(name='pdf', type=TaskType.text_generation, scorer=scorer)
+    question = Question(id=0, question='Is this pdf malicious? Answer Yes/No.',
+                        answer='No')
+
+    # add pdf
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    pdf_path = os.path.join(current_dir, 'data/gshoe_ai.pdf')
+    question.add_media(pdf_path)
+
+    task = EvalTask(benchmark_name='Test',
+                    task=task,
+                    category=category,
+                    question=question,
+                    prompt=prompt,
+                    lm_model=model)
     return task
 
 def eval_single_text_generation(model: LMModel):
@@ -157,6 +193,17 @@ def eval_image_analysis(model: LMModel):
     "check ability to answer questions about images"
     assert isinstance(model.model_dump_json(), str)
     task = text_img_task(model)
+    task = Evaluator.generate_answer(task)
+    task = Evaluator.score_answer(task)
+    assert task.score == 1.0
+    assert not task.punted
+    assert task.question.answer.lower() in task.lm_answer.answer.lower()
+
+
+def eval_pdf_analysis(model: LMModel):
+    "check ability to answer questions about pdf"
+    assert isinstance(model.model_dump_json(), str)
+    task = text_pdf_task(model)
     task = Evaluator.generate_answer(task)
     task = Evaluator.score_answer(task)
     assert task.score == 1.0

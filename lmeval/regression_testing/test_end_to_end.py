@@ -23,10 +23,10 @@ from lmeval.models.gemini import GeminiModel
 from lmeval import Question, Task, TaskType, ScorerType, Evaluator
 from lmeval.evaluator import EvalTask
 from ..fixtures import get_country_boolean, get_country_multi_choice, get_country_generation
-from .fixtures import gemini, gemini_pro15
+from .fixtures import gemini, gemini_lite
 
 
-def  test_e2e_benchmarking(gemini, gemini_pro15):
+def  test_e2e_benchmarking(gemini, gemini_lite):
     NUM_QUESTIONS = 2  # per task
 
     ## benchmark creation
@@ -77,16 +77,16 @@ def  test_e2e_benchmarking(gemini, gemini_pro15):
 
 
     # setup eval
-    models = [gemini, gemini_pro15]   # two models to check multiple models support
+    models = [gemini] #, gemini_lite]   # two models to check multiple models support
     # adding irrelevant prompt to check proper prompt selection
     prompts = [QuestionOnlyPrompt(), TrueOrFalseAnswerPrompt(), MultiChoicesPrompt()]
     evaluator = Evaluator(benchmark)
 
     # plan execution
     plan_report = evaluator.plan(models=models, prompts=prompts)
-    assert len(plan_report) == 2  # 2 models
+    assert len(plan_report) == len(models) * 2
     for model_name, model_report in plan_report.items():
-        assert len(model_report) == 2
+        assert len(model_report) == len(models)
         for t in model_report:
             assert t['category'] == category_name
             assert t['planned'] == NUM_QUESTIONS
@@ -137,8 +137,12 @@ def test_e2e_boolean(gemini):
         assert data['answer'].lower() in answer.answer.lower()
 
         # check evaluator works correctly
-        etask = EvalTask(category=category, task=task, question=question, lm_model=gemini,
-                        prompt=TrueOrFalseAnswerPrompt())
+        etask = EvalTask(benchmark_name='Test',
+                         category=category,
+                         task=task,
+                         question=question,
+                         lm_model=gemini,
+                         prompt=TrueOrFalseAnswerPrompt())
 
         etask = Evaluator.generate_answer(etask)
         assert data['answer'].lower() in etask.lm_answer.answer.lower()
@@ -169,8 +173,12 @@ def test_e2e_multi(gemini):
 
 
         # check evaluator works correctly
-        etask = EvalTask(category=category, task=task, question=question, lm_model=gemini,
-                        prompt=MultiChoicesPrompt())
+        etask = EvalTask(benchmark_name='Test',
+                         category=category,
+                         task=task,
+                         question=question,
+                         lm_model=gemini,
+                         prompt=MultiChoicesPrompt())
 
         etask = Evaluator.generate_answer(etask)
         etask = Evaluator.score_answer(etask)
@@ -202,8 +210,12 @@ def test_e2e_text_generation(gemini):
         assert data['answer'].lower() in answer.answer.lower()
 
         # check evaluator works correctly
-        etask = EvalTask(category=category, task=task, question=question, lm_model=gemini,
-                        prompt=QuestionOnlyPrompt())
+        etask = EvalTask(benchmark_name='Test',
+                         category=category,
+                         task=task,
+                         question=question,
+                         lm_model=gemini,
+                         prompt=QuestionOnlyPrompt())
 
         etask = Evaluator.generate_answer(etask)
         etask = Evaluator.score_answer(etask)

@@ -18,20 +18,26 @@ import pytest
 import os
 from dotenv import load_dotenv
 from lmeval.models.gemini import GeminiModel
+from lmeval.models.litellm import LiteLLMModel, proxy_make_model
 
 
 @pytest.fixture
-def gemini() -> GeminiModel:
+def gemini() -> GeminiModel | LiteLLMModel:
     "Gemini model fixture"
-    load_dotenv()  # take environment variables from .env.
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    model = GeminiModel(api_key=GEMINI_API_KEY)
+    # try proxy first
+    model = proxy_make_model()
+    if not model:
+        load_dotenv()  # take environment variables from .env.
+        GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+        model = GeminiModel(api_key=GEMINI_API_KEY)
     return model
 
 @pytest.fixture
-def gemini_pro15() -> GeminiModel:
+def gemini_lite() -> GeminiModel | LiteLLMModel:
     "Gemini model fixture"
-    load_dotenv()  # take environment variables from .env.
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    model = GeminiModel(api_key=GEMINI_API_KEY, model_version="gemini-1.5-pro")
+    model = proxy_make_model(model='gemini/gemini-2.0-flash-lite-preview-02-05')
+    if not model:
+        load_dotenv()  # take environment variables from .env.
+        GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+        model = GeminiModel(api_key=GEMINI_API_KEY, model_version='gemini-2.0-flash-lite')
     return model

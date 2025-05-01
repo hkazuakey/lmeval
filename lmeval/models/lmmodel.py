@@ -124,23 +124,35 @@ class LMModel(CustomModel):
     def __repr__(self) -> str:
         return str(self)
 
-    def _img2base64(self, raw_img: bytes) -> str:
-        "convert an image to base64 to send to the model"
-        return base64.b64encode(raw_img).decode('utf-8')
+    def _blob2base64(self, blob: bytes) -> str:
+        "convert an blob to base64 to send to the model"
+        return base64.b64encode(blob).decode('utf-8')
 
-    def batch_execute(self, tasks: list["EvalTask"], temperature: float = 0.0,
-                      completions: int = 1) -> Generator[Tuple[int, LMAnswer], None, None]:
+    def batch_execute(
+            self,
+            tasks: list["EvalTask"],
+            temperature: float = 0.0,
+            max_tokens: int = 4096,
+            completions: int = 1
+    ) -> Generator[Tuple[int, LMAnswer], None, None]:
         """ Execute a batch of prompts in parallel."""
         for i, etask in enumerate(tasks):
             if etask.task.type == TaskType.completion.value:
-                yield i, self.complete(etask.messages, temperature, completions, tools=etask.question.tools)
+                yield i, self.complete(etask.messages,
+                                       temperature,
+                                       completions,
+                                       tools=etask.question.tools)
             elif etask.task.type == TaskType.grouped_completion.value:
-                yield i, self.multi_complete(etask.question, temperature=temperature, completions=10)
+                yield i, self.multi_complete(etask.question,
+                                             temperature=temperature,
+                                             completions=10)
             else:
                 # normalize medias
                 mds = etask.question.medias if etask.question.medias else []
                 mds = mds if isinstance(mds, list) else [mds]
-                yield i, self.generate_text(etask.instanciated_prompt, mds, temperature, completions)
+                yield i, self.generate_text(etask.instanciated_prompt, mds,
+                                            temperature, max_tokens,
+                                            completions)
 
     def batch_generate_text(
             self,
@@ -233,4 +245,3 @@ class LMAnswer(CustomModel):
 
     def __str__(self) -> str:
         return str(f"{self.model.name}: {self.answer}")
-    

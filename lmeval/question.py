@@ -93,6 +93,7 @@ class Question(CustomModel):
                      ".png": [FileType.png, Modality.image],
                      ".mp4": [FileType.mp4, Modality.video],
                      ".py": [FileType.python, Modality.code],
+                     ".pdf": [FileType.pdf, Modality.document],
                     }
 
         # auto detection if needed

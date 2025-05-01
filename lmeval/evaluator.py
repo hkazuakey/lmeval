@@ -47,6 +47,7 @@ class AnswerStatus(Enum):
     existing = 0
     planned = 1
 
+
 class Evaluator():
     """
     create a plan report
@@ -70,14 +71,18 @@ class Evaluator():
 
         if isinstance(benchmark, str):
             if benchmark == self.save_path:
-                print("benchmark_path and save_path are the same, results will be appended to the benchmark file.")
+                print(
+                    "benchmark_path and save_path are the same, results will be appended to the benchmark file."
+                )
             # fixme: catch error if path is not valid
             self.benchmark: Benchmark = load_benchmark(
                 benchmark, use_tempfile=use_tempfile)
         elif isinstance(benchmark, (Benchmark, lmeval.benchmark.Benchmark)):
             self.benchmark = benchmark
         else:
-            raise ValueError(f"No benchmark or benchmark path provided - {type(benchmark)} provided")
+            raise ValueError(
+                f"No benchmark or benchmark path provided - {type(benchmark)} provided"
+            )
 
         # user supplied callback for integration
         self.callback = callback
@@ -111,7 +116,8 @@ class Evaluator():
 
         # boxing models and prompts if not lists
         models_list: list[M] = models if isinstance(models, list) else [models]
-        prompts_list: list[P] = prompts if isinstance(prompts, list) else [prompts]
+        prompts_list: list[P] = prompts if isinstance(prompts,
+                                                      list) else [prompts]
 
         # initial sanity checks
         # FIXME: call benchmark.validate() when implemented
@@ -119,7 +125,9 @@ class Evaluator():
         versions = set()
         for model in models_list:
             versions.add(model.version_string)
-        assert len(versions) == len(models_list), f"Models should have unique version strings - found {len(models_list)} models and {len(versions)} unique version strings"
+        assert len(versions) == len(
+            models_list
+        ), f"Models should have unique version strings - found {len(models_list)} models and {len(versions)} unique version strings"
 
         # plan the evaluations
         for category in self.benchmark.categories:
@@ -163,7 +171,9 @@ class Evaluator():
                                     punt_detector=punt_detector,
                                 )
                             elif task.type == TaskType.grouped_completion.value:
-                                assert isinstance(question, GroupedQuestion), "Grouped completion tasks should have a GroupedQuestion"
+                                assert isinstance(
+                                    question, GroupedQuestion
+                                ), "Grouped completion tasks should have a GroupedQuestion"
 
                                 evaltask = GroupedCompletionEvalTask(
                                     benchmark_name=self.benchmark.name,
@@ -173,6 +183,19 @@ class Evaluator():
                                     lm_model=model,
                                     lm_answer=None,
                                     prompt=prompt,
+                                    punt_detector=punt_detector,
+                                )
+                            else:
+                                evaltask = EvalTask(
+                                    benchmark_name=self.benchmark.name,
+                                    question=question,
+                                    category=category,
+                                    task=task,
+                                    lm_model=model,
+                                    lm_answer=None,
+                                    prompt=prompt,
+                                    messages=question.messages,
+                                    tools=question.tools,
                                     punt_detector=punt_detector,
                                 )
 
@@ -315,7 +338,8 @@ class Evaluator():
                     self.num_processed += 1
                     log.debug(
                         "Added answer to benchmark (%s, %d): %s; num processed: %d, num saved: %d",
-                        model_name, index, bench_question, self.num_processed, self.num_saved)
+                        model_name, index, bench_question, self.num_processed,
+                        self.num_saved)
 
                     dp = display_progress[d_index]
                     dp["count"] = count
@@ -338,12 +362,22 @@ class Evaluator():
                     etasks=etasks,
                     d_index=len(display_progress),
                 )
-                display_progress.append({"pbar": tqdm(desc=f"Model {model_name}",
-                                                      total=len(etasks)),
-                                                      "total": len(etasks),
-                                                      "count": 0, "error": 0,
-                                                      "punt": 0, "score": 0.0,
-                                                      "shown": 0})
+                display_progress.append({
+                    "pbar":
+                    tqdm(desc=f"Model {model_name}", total=len(etasks)),
+                    "total":
+                    len(etasks),
+                    "count":
+                    0,
+                    "error":
+                    0,
+                    "punt":
+                    0,
+                    "score":
+                    0.0,
+                    "shown":
+                    0
+                })
                 futures.append(executor.submit(func))
             done = False
             while not done:
@@ -394,12 +428,12 @@ class Evaluator():
         elif isinstance(etask, CompletionEvalTask):
             # Prepare messages for CompletionEvalTask
             if not etask.messages or len(etask.messages) == 0:
-                etask.messages = [
-                    {
-                        "role": "user",
-                        "content": etask.prompt.render(etask.question, etask.task),
-                    }
-                ]
+                etask.messages = [{
+                    "role":
+                    "user",
+                    "content":
+                    etask.prompt.render(etask.question, etask.task),
+                }]
             instanciated_prompt = etask.messages
             etask.instanciated_prompt = json.dumps(instanciated_prompt)
         elif etask.instanciated_prompt:
@@ -431,12 +465,12 @@ class Evaluator():
         elif isinstance(etask, CompletionEvalTask):
             # Prepare messages for CompletionEvalTask
             if not etask.messages or len(etask.messages) == 0:
-                etask.messages = [
-                    {
-                        "role": "user",
-                        "content": etask.prompt.render(etask.question, etask.task),
-                    }
-                ]
+                etask.messages = [{
+                    "role":
+                    "user",
+                    "content":
+                    etask.prompt.render(etask.question, etask.task),
+                }]
             instanciated_prompt = etask.messages
             etask.instanciated_prompt = json.dumps(instanciated_prompt)
         elif etask.instanciated_prompt:
@@ -461,7 +495,8 @@ class Evaluator():
         # generate model answer
         if isinstance(etask, CompletionEvalTask):
             print(f"tools here: {etask.tools}")
-            model_answer: LMAnswer = etask.lm_model.complete(etask.messages, tools=etask.tools)
+            model_answer: LMAnswer = etask.lm_model.complete(etask.messages,
+                                                             tools=etask.tools)
         else:
             model_answer: LMAnswer = etask.lm_model.generate_text(
                 instanciated_prompt, medias=etask.question.medias)
