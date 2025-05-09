@@ -253,13 +253,13 @@ class LiteLLMModel(LMModel):
                             f"data:image/{media.filetype};base64,{image_base64}"
                         }
                     })
-                elif media.filetype == FileType.pdf:
+                elif media.filetype == FileType.pdf.value:
                     pdf_base64 = self._blob2base64(media.content)
                     content.append({
-                        "type": "file",
-                        "file": {
-                            "file_data":
-                            f"data:application/pdf;base64,{pdf_base64}"
+                        "type": "image_url",
+                        "image_url": {
+                            "url":
+                            f"data:application/pdf;base64,{pdf_base64}",
                         }
                     })
             # text prompt

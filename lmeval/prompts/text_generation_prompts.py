@@ -33,7 +33,7 @@ class ChainOfThoughtsPrompt(Prompt):
     def __init__(self,
                  template: str = "{{question.question}} Let's think step by step and then answer the question starting with Answer:",
                  name: str = "Chain of Thoutghts",
-                 description: str = "Ask the model to answere the question using a single word",
+                 description: str = "Ask the model to answere the question using chain of thoughts",
                  task_type = TaskType.text_generation,
                  url: str = '',
                  version: str = '1.0'):

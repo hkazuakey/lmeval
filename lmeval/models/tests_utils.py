@@ -20,7 +20,7 @@ from lmeval import Evaluator
 from lmeval import get_scorer, ScorerType, Question, Task, TaskType
 from lmeval import Category, LMModel
 from lmeval.evaluator import EvalTask
-from lmeval.prompts import SingleWordAnswerPrompt
+from lmeval.prompts import QuestionOnlyPrompt, SingleWordAnswerPrompt
 
 
 def many_text_only_tasks(model: LMModel, num_tasks: int = 5) -> list[EvalTask]:
@@ -135,15 +135,15 @@ def text_img_task(model: LMModel) -> EvalTask:
 def text_pdf_task(model: LMModel) -> EvalTask:
     "return a task witn a single question that have text and pdf"
     # prompt
-    prompt = SingleWordAnswerPrompt()
+    prompt = QuestionOnlyPrompt()
 
     # create task
     scorer = get_scorer(ScorerType.contain_text_insensitive)
     category_name = 'document'
     category = Category(name=category_name, description='pdf questions')
     task = Task(name='pdf', type=TaskType.text_generation, scorer=scorer)
-    question = Question(id=0, question='Is this pdf malicious? Answer Yes/No.',
-                        answer='No')
+    question = Question(id=0, question='What is the name of the company discussed in the PDF document?',
+                        answer='Gshoe')
 
     # add pdf
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -206,6 +206,6 @@ def eval_pdf_analysis(model: LMModel):
     task = text_pdf_task(model)
     task = Evaluator.generate_answer(task)
     task = Evaluator.score_answer(task)
-    assert task.score == 1.0
+    assert task.score == 1.0, task.lm_answer.answer
     assert not task.punted
     assert task.question.answer.lower() in task.lm_answer.answer.lower()
