@@ -246,6 +246,7 @@ class LiteLLMModel(LMModel):
                 if media.modality == Modality.image.value:
                     # FIXME use llmlite
                     image_base64 = self._blob2base64(media.content)
+                    # FIXME one has to potentially also handle VertexAI and others (e.g. OpenAI) differently; see PDF below
                     content.append({
                         "type": "image_url",
                         "image_url": {
@@ -255,13 +256,21 @@ class LiteLLMModel(LMModel):
                     })
                 elif media.filetype == FileType.pdf.value:
                     pdf_base64 = self._blob2base64(media.content)
-                    content.append({
-                        "type": "image_url",
-                        "image_url": {
-                            "url":
-                            f"data:application/pdf;base64,{pdf_base64}",
-                        }
-                    })
+                    if self.publisher in ("gemini", "anthropic"):  # VertexAI uses a different API format for PDF
+                        content.append({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:application/pdf;base64,{pdf_base64}",
+                            }
+                        })
+                    else:
+                        content.append({
+                            "type": "file",
+                            "file": {
+                                "filename": "file.pdf",
+                                "file_data": f"data:application/pdf;base64,{pdf_base64}"
+                            }
+                        })
             # text prompt
             content.append({"type": "text", "text": prompt})
             return [{"role": "user", "content": content}]
