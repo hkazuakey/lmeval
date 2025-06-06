@@ -42,7 +42,8 @@ def update_generation_kwargs(generation_kwargs: dict, update: dict) -> dict:
 def proxy_make_model(model='gemini/gemini-2.0-flash-001',
                      proxy=None,
                      proxy_key=None,
-                     max_workers=1):
+                     max_workers=1,
+                     disable_logging=False):
     """Factory method for creating a model via llmproxy."""
     if not proxy or not proxy_key:
         load_dotenv()
@@ -61,7 +62,8 @@ def proxy_make_model(model='gemini/gemini-2.0-flash-001',
                         publisher=model.split('/', maxsplit=1)[0],
                         base_url=proxy,
                         api_key=proxy_key,
-                        max_workers=max_workers)
+                        max_workers=max_workers,
+                        disable_logging=disable_logging)
 
 
 class LiteLLMModel(LMModel):
@@ -77,7 +79,8 @@ class LiteLLMModel(LMModel):
                  base_url: Optional[str] = None,
                  api_key: Optional[str] = None,
                  max_workers: Optional[int] = 20,
-                 benchmark_name: str = "unknown"):
+                 benchmark_name: str = "unknown",
+                 disable_logging: bool = False):
         """Init a LiteLLMModel compatible model
 
         Args:
@@ -88,6 +91,7 @@ class LiteLLMModel(LMModel):
             base_url: Custom hosted endpoint. Defaults to "".
             api_key: Model API key. Defaults to "".
             max_workers: Number of workers to use for batch completion. Defaults to 100 (Litellm default).
+            disble_logging: Disables litellm loggging
         """
 
         # clean up the name
@@ -106,6 +110,8 @@ class LiteLLMModel(LMModel):
         self.runtime_vars['is_custom'] = True if base_url else False
         self.runtime_vars['max_workers'] = max_workers
         self.runtime_vars['benchmark_name'] = benchmark_name
+        if disable_logging:
+            self.runtime_vars['no-log'] = True
 
     def batch_generate_text(
             self,

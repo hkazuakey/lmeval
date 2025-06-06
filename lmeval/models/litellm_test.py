@@ -35,6 +35,6 @@ def test_litellm_image_analysis():
 
 
 def test_litellm_pdf_analysis():
-    model = proxy_make_model()
+    model = proxy_make_model(disable_logging=True)
     assert model
     eval_pdf_analysis(model)
