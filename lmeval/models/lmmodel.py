@@ -27,12 +27,17 @@ from ..media import Media
 class LMModel(CustomModel):
     name: str = Field(default='')
     publisher: str = Field(default='')
-    modalities: list[Modality] = [Modality.text]  # list of supported modalities
-    version_string: str  = Field(default='') # exact string - used for caching gpt-4-1234
-    isunsafe: bool = Field(default=False)  # mark if the safety filters are disabled
+    modalities: list[Modality] = [Modality.text
+                                  ]  # list of supported modalities
+    version_string: str = Field(
+        default='')  # exact string - used for caching gpt-4-1234
+    isunsafe: bool = Field(
+        default=False)  # mark if the safety filters are disabled
 
     # non serialized runtime variables
-    runtime_vars: dict = Field(default={}, exclude=True) # ! do not remove exclude=True will leak keys
+    runtime_vars: dict = Field(
+        default={},
+        exclude=True)  # ! do not remove exclude=True will leak keys
 
     # allow to customize model prompt separation tokens
     prompt_prefix: str = Field(default='')
@@ -53,20 +58,32 @@ class LMModel(CustomModel):
                        completions: int = 1) -> LMAnswer:
         raise NotImplementedError
 
-    def complete(self, messages: list[dict], temperature: float = 0.0,
-                 completions: int = 1) -> LMAnswer:
+    def complete(self,
+                 messages: list[dict],
+                 temperature: float = 0.0,
+                 completions: int = 1,
+                 **generation_kwargs) -> LMAnswer:
         raise NotImplementedError
 
-    def multi_complete(self, question: "GroupedQuestion", temperature: float = 0.0,
-                       completions: int = 1) -> LMAnswer:
+    def multi_complete(self,
+                       question: "GroupedQuestion",
+                       temperature: float = 0.0,
+                       completions: int = 1,
+                       **generation_kwargs) -> LMAnswer:
         raise NotImplementedError
 
-    def _build_answer(self, text: str, generation_time: float,
-                       iserror: bool = False, error_reason: str = '',
-                       total_tokens: int = 0, prompt_tokens: int = 0,
-                       completion_tokens: int = 0, isunsafe: bool = False,
-                       cost: float = 0.0, prompt:str='',
-                       id: str = '') -> LMAnswer:
+    def _build_answer(self,
+                      text: str,
+                      generation_time: float,
+                      iserror: bool = False,
+                      error_reason: str = '',
+                      total_tokens: int = 0,
+                      prompt_tokens: int = 0,
+                      completion_tokens: int = 0,
+                      isunsafe: bool = False,
+                      cost: float = 0.0,
+                      prompt: str = '',
+                      id: str = '') -> LMAnswer:
         """Build an answer object.
 
         Args:
@@ -136,6 +153,16 @@ class LMModel(CustomModel):
             completions: int = 1
     ) -> Generator[Tuple[int, LMAnswer], None, None]:
         """ Execute a batch of prompts in parallel."""
+        # split out the tasks to use batch_generate_text
+        others_index = []
+        others_prompt = []
+        others_media = []
+        others_types = frozenset([
+            TaskType.boolean.value,
+            TaskType.multiple_choices.value,
+            TaskType.multiple_choices_multiple_answers.value,
+            TaskType.text_generation.value
+        ])
         for i, etask in enumerate(tasks):
             if etask.task.type == TaskType.completion.value:
                 yield i, self.complete(etask.messages,
@@ -146,13 +173,25 @@ class LMModel(CustomModel):
                 yield i, self.multi_complete(etask.question,
                                              temperature=temperature,
                                              completions=10)
-            else:
-                # normalize medias
+            elif etask.task.type not in others_types:
                 mds = etask.question.medias if etask.question.medias else []
                 mds = mds if isinstance(mds, list) else [mds]
                 yield i, self.generate_text(etask.instanciated_prompt, mds,
                                             temperature, max_tokens,
                                             completions)
+            else:
+                # batch these in parallel
+                others_index.append(i)
+                # normalize medias
+                mds = etask.question.medias if etask.question.medias else []
+                mds = mds if isinstance(mds, list) else [mds]
+                others_prompt.append(etask.instanciated_prompt)
+                others_media.append(mds)
+
+        for (i, val) in self.batch_generate_text(others_prompt, others_media,
+                                                 temperature, max_tokens,
+                                                 completions):
+            yield others_index[i], val
 
     def batch_generate_text(
             self,
@@ -164,18 +203,22 @@ class LMModel(CustomModel):
     ) -> Generator[Tuple[int, LMAnswer], None, None]:
         """ Generate text answers in batches or parallel."""
         for i, prompt in enumerate(prompts):
-            yield i, self.generate_text(prompt, medias[i], temperature,
-                                        completions)
+            yield i, self.generate_text(prompt,
+                                        (medias[i] if i < len(medias) else []),
+                                        temperature, max_tokens, completions)
 
-    def batch_generate_image(self,
-                             prompts: list[str],
-                             medias: list[list[Media]],
-                             temperature: float = 0.0,
-                             completions: int = 1) -> Generator[Tuple[int, LMAnswer], None, None]:
+    def batch_generate_image(
+            self,
+            prompts: list[str],
+            medias: list[list[Media]],
+            temperature: float = 0.0,
+            completions: int = 1
+    ) -> Generator[Tuple[int, LMAnswer], None, None]:
         """Generate image answers in batches or parallel."""
         for i, prompt in enumerate(prompts):
-            yield i, self.generate_image(prompt, medias[i], temperature,
-                                         completions)
+            yield i, self.generate_image(
+                prompt, (medias[i] if i < len(medias) else []), temperature,
+                completions)
 
 class Step(CustomModel):
     output: str
