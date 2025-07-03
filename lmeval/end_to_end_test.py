@@ -45,11 +45,14 @@ def test_e2e_benchmarking(gemini_mock, gemini_pro15_mock):
 
     # add category
     category_name = 'eu'
-    category = Category(name=category_name, description='European geography questions')
+    category = Category(name=category_name,
+                        description='European geography questions')
     benchmark.categories.append(category)
 
     # add boolean task and questions
-    task = Task(name='capital_bool', type=TaskType.boolean, scorer=get_scorer(ScorerType.boolean_answer))
+    task = Task(name='capital_bool',
+                type=TaskType.boolean,
+                scorer=get_scorer(ScorerType.boolean_answer))
     for idx in range(NUM_QUESTIONS):
         # random capital question
         data = get_country_boolean()
@@ -60,7 +63,9 @@ def test_e2e_benchmarking(gemini_mock, gemini_pro15_mock):
     benchmark.categories[0].tasks.append(task)
 
     # adding a 2nd task with generation text to check heterogenous tasks support
-    task2 = Task(name='capital_gen', type=TaskType.text_generation, scorer=get_scorer(ScorerType.contain_text_insensitive))
+    task2 = Task(name='capital_gen',
+                 type=TaskType.text_generation,
+                 scorer=get_scorer(ScorerType.contain_text_insensitive))
     for idx in range(NUM_QUESTIONS):
         # random capital question
         data = get_country_generation()
@@ -72,15 +77,15 @@ def test_e2e_benchmarking(gemini_mock, gemini_pro15_mock):
         # question id is assigned by add_question so must be after
         assert isinstance(question.id, int) and question.id >= 0
 
-
     benchmark.categories[0].tasks.append(task2)
 
     for category in benchmark.categories:
         for task in category.tasks:
             print(f"Category: {category.name}, Task: {task.name}")
             for question in task.questions:
-                print(f"Question: {question.question}, Answer: {question.answer}")
-
+                print(
+                    f"Question: {question.question}, Answer: {question.answer}"
+                )
 
     # check benchmark creation
     stats = benchmark.get_stats()
@@ -92,16 +97,22 @@ def test_e2e_benchmarking(gemini_mock, gemini_pro15_mock):
     assert len(stats['tasks_stats'][category_name]) == 2
     assert 'capital_bool' in stats['tasks_stats'][category_name]
     assert 'capital_gen' in stats['tasks_stats'][category_name]
-    assert stats['tasks_stats'][category_name]['capital_bool']['questions'] == NUM_QUESTIONS
-    assert stats['tasks_stats'][category_name]['capital_gen']['questions'] == NUM_QUESTIONS
-
+    assert stats['tasks_stats'][category_name]['capital_bool'][
+        'questions'] == NUM_QUESTIONS
+    assert stats['tasks_stats'][category_name]['capital_gen'][
+        'questions'] == NUM_QUESTIONS
 
     # setup eval
-    models = [gemini_mock, gemini_pro15_mock]   # two models to check multiple models support
+    models = [gemini_mock,
+              gemini_pro15_mock]  # two models to check multiple models support
     gemini_mock.set_request_response(request_response)
     gemini_pro15_mock.set_request_response(request_response)
     # adding irrelevant prompt to check proper prompt selection
-    prompts = [QuestionOnlyPrompt(), TrueOrFalseAnswerPrompt(), MultiChoicesPrompt()]
+    prompts = [
+        QuestionOnlyPrompt(),
+        TrueOrFalseAnswerPrompt(),
+        MultiChoicesPrompt(use_original_letters=False)
+    ]
     evaluator = Evaluator(benchmark)
 
     # plan execution
@@ -124,7 +135,7 @@ def test_e2e_benchmarking(gemini_mock, gemini_pro15_mock):
     for task in evaluated_benchmark.categories[0].tasks:
         assert len(task.questions) == NUM_QUESTIONS
         for question in task.questions:
-            assert len(question.lm_answers) == 1 # num expected prompts
+            assert len(question.lm_answers) == 1  # num expected prompts
             for prompt_name, prompt_answers in question.lm_answers.items():
                 assert len(prompt_answers) == len(models)  # num models
                 for model_name, answer in prompt_answers.items():
@@ -134,7 +145,9 @@ def test_e2e_benchmarking(gemini_mock, gemini_pro15_mock):
                     assert not answer.ispunting
                     assert question.answer.lower() in answer.answer.lower()
                     assert answer.id  # do we preserve the model completion id?
-                    print(f"Model: {model_name}, Prompt: {prompt_name}, Question: {question.question}, Answer: {answer.answer}, Score: {answer.score}")
+                    print(
+                        f"Model: {model_name}, Prompt: {prompt_name}, Question: {question.question}, Answer: {answer.answer}, Score: {answer.score}"
+                    )
 
 def test_e2e_boolean(gemini_mock):
     NUM_QUESTIONS = 3
@@ -187,7 +200,7 @@ def test_e2e_multi(gemini_mock):
                             answer=data['answer'])
 
         # check prompt rendering
-        rendered_question = MultiChoicesPrompt().render(question, task)
+        rendered_question = MultiChoicesPrompt(use_original_letters=False).render(question, task)
         assert data['question'] in rendered_question
         for choice in data['choices']:
             assert choice in rendered_question
@@ -224,7 +237,7 @@ def test_e2e_multi(gemini_mock):
 
 def test_e2e_multi_answers(gemini):
     "We need the real Gemini for this one"
-    prompt = MultiChoicesMultiAnswersPrompt()
+    prompt = MultiChoicesMultiAnswersPrompt(use_original_letters=False)
     question_text = "What is true about Paris"
     question = Question(id=1,
                         question=question_text,

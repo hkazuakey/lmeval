@@ -19,7 +19,7 @@ from lmeval import get_scorer, ScorerType
 
 
 def test_multi_choices_multi_answers():
-    prompt = MultiChoicesMultiAnswersPrompt()
+    prompt = MultiChoicesMultiAnswersPrompt(use_original_letters=False)
     question_text = "What is true about Paris"
     question = Question(id=1,
                         question=question_text,
@@ -103,7 +103,7 @@ def test_multi_choices_multi_answers_original_letters():
         assert f"{question.original_letters[idx]}:{answer}"in rendered_prompt
 
 def test_multi_choices():
-    prompt = MultiChoicesPrompt()
+    prompt = MultiChoicesPrompt(use_original_letters=False)
     question_text = "What is the capital of France?"
     question = Question(id=1, question=question_text, answer="Paris",
                         choices=["London", "Berlin", "Madrid"])
@@ -155,7 +155,7 @@ def test_multi_choices_original_letters():
         assert f"{question.original_letters[idx]}:{answer}"in rendered_prompt
 
 def test_repeated_used_multi_choices():
-    prompt = MultiChoicesPrompt()
+    prompt = MultiChoicesPrompt(use_original_letters=False)
     question_text = "What is the capital of France?"
     question = Question(id=1, question=question_text, answer="Paris",
                         choices=["London", "Berlin", "Madrid"])
@@ -186,7 +186,7 @@ def test_repeated_used_multi_choices():
 
 def test_answer_in_choice_fail():
     "Ensure that the generation fail if the answers is in the list of other choices"
-    prompt = MultiChoicesPrompt()
+    prompt = MultiChoicesPrompt(use_original_letters=False)
     question_text = "What is the capital of France?"
     question = Question(id=1, question=question_text, answer="Paris",
                         choices=["Paris", "Berlin", "Madrid"])

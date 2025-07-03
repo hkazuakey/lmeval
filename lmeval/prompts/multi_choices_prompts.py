@@ -48,7 +48,7 @@ class MultiChoicesMultiAnswersPrompt(Prompt):
                 task_type = TaskType.multiple_choices_multiple_answers,
                 url: str = '',
                 version: str = '1.0',
-                use_original_letters: bool = False):
+                use_original_letters: bool = True):
 
             super().__init__(name=name, description=description,
                             task_type=task_type, template=template, url=url,
@@ -152,7 +152,7 @@ class MultiChoicesPrompt(Prompt):
                 task_type = TaskType.multiple_choices,
                 url: str = '',
                 version: str = '1.0',
-                use_original_letters: bool = False):
+                use_original_letters: bool = True):
 
             super().__init__(name=name, description=description,
                             task_type=task_type, template=template, url=url,

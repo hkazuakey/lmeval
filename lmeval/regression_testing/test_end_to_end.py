@@ -163,7 +163,7 @@ def test_e2e_multi(gemini):
                             answer=data['answer'])
 
         # check prompt rendering
-        rendered_question = MultiChoicesPrompt().render(question, task)
+        rendered_question = MultiChoicesPrompt(use_original_letters=False).render(question, task)
         assert data['question'] in rendered_question
         for choice in data['choices']:
             assert choice in rendered_question
